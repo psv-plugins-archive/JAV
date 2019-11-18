@@ -1,0 +1,12 @@
+version: 2
+firmware: 3.60
+modules:
+  ScePaf:
+    nid: 0xCD679177
+    libraries:
+      ScePafToplevel:
+        kernel: false
+        nid: 0x4D9A9DD0
+        functions:
+          ScePafToplevel_004D98CC: 0x004D98CC
+          ScePafToplevel_1DF2C6FD: 0x1DF2C6FD
