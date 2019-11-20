@@ -99,21 +99,40 @@ void progress_vol_bar(int start, int end, int flag) {
 
 typedef int (*set_mute_icon_ptr)(int);
 
-void set_mute_icon(int v) {
-	while (sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_PAF) < 0) {
-		sceKernelDelayThread(50 * 1000);
+int set_mute_icon(int v) {
+	if (sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_PAF) < 0) {
+		return -1;
 	}
+	int a = ScePafToplevel_004D98CC("indicator_plugin");
+	if (a != 0 && (a = ScePafToplevel_1DF2C6FD(a, 1)) != 0) {
+		(*(set_mute_icon_ptr*)(a + 0x20))(v);
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+void SceShellMain_hang_enter(void) {
 	for (;;) {
-		int a = ScePafToplevel_004D98CC("indicator_plugin");
-		if (a != 0) {
-			a = ScePafToplevel_1DF2C6FD(a, 1);
-			if (a != 0) {
-				(*(set_mute_icon_ptr*)(a + 0x20))(v);
-				return;
-			}
+		sceKernelLockMutex(top_func_exit_mtx, 1, 0);
+		SceKernelMutexInfo info;
+		while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
+				|| info.numWaitThreads == 0) {
+			sceKernelDelayThread(10 * 1000);
 		}
-		sceKernelDelayThread(50 * 1000);
+		if (set_mute_icon(profile.muted) == 0) {
+			break;
+		} else {
+			sceKernelUnlockMutex(top_func_exit_mtx, 1);
+			sceKernelDelayThread(50 * 1000);
+		}
 	}
+	*shell_mute_status = profile.muted;
+}
+
+void SceShellMain_hang_exit(int output) {
+	sceKernelUnlockMutex(top_func_exit_mtx, 1);
+	apply_profile(output);
 }
 
 int volume_profile() {
@@ -125,11 +144,8 @@ int volume_profile() {
 	// initialise from config
 	int last_output = get_output();
 	sceKernelLockMutex(top_func_enter_mtx, 1, 0);
-	sceKernelLockMutex(top_func_exit_mtx, 1, 0);
-	*shell_mute_status = profile.muted;
-	sceKernelUnlockMutex(top_func_exit_mtx, 1);
-	set_mute_icon(profile.muted);
-	apply_profile(last_output);
+	SceShellMain_hang_enter();
+	SceShellMain_hang_exit(last_output);
 	sceKernelUnlockMutex(top_func_enter_mtx, 1);
 
 	// profile is written to file after 3 seconds of no change
@@ -138,6 +154,7 @@ int volume_profile() {
 	SceInt64 profile_last_changed = sceKernelGetSystemTimeWide();
 
 	while (run_thread) {
+		LOG_FLUSH();
 		sceKernelDelayThread(100 * 1000);
 		disable_avls_timer();
 
@@ -162,14 +179,11 @@ int volume_profile() {
 			}
 
 			sceKernelLockMutex(top_func_enter_mtx, 1, 0);
-			sceKernelLockMutex(top_func_exit_mtx, 1, 0);
-			*shell_mute_status = profile.muted;
+			SceShellMain_hang_enter();
 			init_vol_bar(vol_bar_ctx, 1);
 			if (profile.muted) {
 				set_vol_bar_muted(vol_bar_ctx, profile.avls);
-				sceKernelUnlockMutex(top_func_exit_mtx, 1);
-				set_mute_icon(profile.muted);
-				apply_profile(output);
+				SceShellMain_hang_exit(output);
 
 				// need to try many times to ensure mute
 				for (int i = 0; i < 15; i++) {
@@ -180,9 +194,7 @@ int volume_profile() {
 				int cur_vol = profile.volumes[last_output];
 				int tgt_vol = profile.volumes[output];
 				set_vol_bar_lvl(vol_bar_ctx, cur_vol, profile.avls << 2);
-				sceKernelUnlockMutex(top_func_exit_mtx, 1);
-				set_mute_icon(profile.muted);
-				apply_profile(output);
+				SceShellMain_hang_exit(output);
 
 				sceKernelDelayThread(400 * 1000);
 				progress_vol_bar(cur_vol, tgt_vol, profile.avls << 2);
@@ -190,10 +202,8 @@ int volume_profile() {
 			}
 			free_vol_bar(vol_bar_ctx);
 			sceKernelUnlockMutex(top_func_enter_mtx, 1);
+			last_output = output;
 		}
-
-		last_output = output;
-		LOG_FLUSH();
 	}
 	return 0;
 }
