@@ -33,5 +33,5 @@ This plugin supercedes NoAVLS so noavls.skprx can be removed from under `*KERNEL
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)
 - Testing: dots-tb, nkekev, [ATTLAS](https://twitter.com/ATTLAS_)
 - Marketing: dots-tb
-- Product manager: [dots-tb](https://twitter.com/dots_tb)
+- Product manager: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA)
 - Funded by: CBPS ([discord](https://discord.gg/2nDCbxJ))
