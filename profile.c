@@ -15,9 +15,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <string.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
+#include <psp2/kernel/clib.h>
 #include "profile.h"
 #include "log.h"
 
@@ -27,8 +27,8 @@ audio_profile_t file_profile;
 audio_profile_t profile;
 
 void reset_profile(void) {
-	memset(&file_profile, 0xFF, sizeof(file_profile));
-	memset(&profile, 0, sizeof(profile));
+	sceClibMemset(&file_profile, 0xFF, sizeof(file_profile));
+	sceClibMemset(&profile, 0, sizeof(profile));
 	profile.avls = get_avls();
 	profile.muted = get_muted();
 	int cur_vol = get_volume();
@@ -53,18 +53,18 @@ int load_profile(void) {
 		}
 	}
 
-	memcpy(&profile, &file_profile, sizeof(profile));
+	sceClibMemcpy(&profile, &file_profile, sizeof(profile));
 	LOG("profile loaded\n");
 	return 0;
 
 fail:
-	memset(&file_profile, 0xFF, sizeof(file_profile));
+	sceClibMemset(&file_profile, 0xFF, sizeof(file_profile));
 	LOG("profile failed to load\n");
 	return -1;
 }
 
 int write_profile(void) {
-	if (memcmp(&profile, &file_profile, sizeof(profile)) == 0) {
+	if (sceClibMemcmp(&profile, &file_profile, sizeof(profile)) == 0) {
 		return 0;
 	}
 
@@ -78,7 +78,7 @@ int write_profile(void) {
 		LOG("profile failed to write\n");
 		return -1;
 	} else {
-		memcpy(&file_profile, &profile, sizeof(file_profile));
+		sceClibMemcpy(&file_profile, &profile, sizeof(file_profile));
 		LOG("profile written to file\n");
 		return 0;
 	}

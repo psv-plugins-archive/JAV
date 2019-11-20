@@ -26,12 +26,10 @@ target_link_libraries(${PROJECT_NAME}
   SceIofilemgr_stub
   SceKernelThreadMgr_stub
   SceLibKernel_stub
-  ScePaf_stub_weak
+  ScePafToplevel_stub_weak
   SceRegistryMgr_stub
   SceSysmodule_stub
   taihen_stub
-  k
-  gcc
 )
 
 vita_create_self(${PROJECT_NAME}.suprx ${PROJECT_NAME} CONFIG exports.yml UNSAFE)

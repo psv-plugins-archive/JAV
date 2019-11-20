@@ -22,7 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Product manager: dots-tb
 // Funded by: CBPS
 
-#include <string.h>
+#include <psp2/kernel/clib.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
@@ -150,7 +150,7 @@ int volume_profile() {
 
 	// profile is written to file after 3 seconds of no change
 	audio_profile_t profile_buffer;
-	memcpy(&profile_buffer, &profile, sizeof(profile_buffer));
+	sceClibMemcpy(&profile_buffer, &profile, sizeof(profile_buffer));
 	SceInt64 profile_last_changed = sceKernelGetSystemTimeWide();
 
 	while (run_thread) {
@@ -162,8 +162,8 @@ int volume_profile() {
 		profile.avls = get_avls();
 		profile.volumes[last_output] = get_volume();
 		profile.muted = get_muted();
-		if (memcmp(&profile_buffer, &profile, sizeof(profile_buffer)) != 0) {
-			memcpy(&profile_buffer, &profile, sizeof(profile_buffer));
+		if (sceClibMemcmp(&profile_buffer, &profile, sizeof(profile_buffer)) != 0) {
+			sceClibMemcpy(&profile_buffer, &profile, sizeof(profile_buffer));
 			profile_last_changed = sceKernelGetSystemTimeWide();
 		} else if (sceKernelGetSystemTimeWide() - profile_last_changed >= 3 * 1000 * 1000) {
 			write_profile();
