@@ -23,11 +23,6 @@ volume_profile.suprx
 
 This plugin supercedes NoAVLS so noavls.skprx can be removed from under `*KERNEL`.
 
-## Known Issues
-
-- Plugins that modify the input buffer may interfere with detection of headphones ([fix for LOLIcon](https://github.com/cuevavirus/volume_profile/raw/assets/LOLIcon.skprx))
-
-
 ## Credits
 
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)

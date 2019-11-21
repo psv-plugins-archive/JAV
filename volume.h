@@ -16,7 +16,7 @@ int get_muted(void);
 void mute_on(void);
 
 int get_avls(void);
-void set_avls(int b);
+void set_avls(int v);
 
 void disable_avls_timer(void);
 

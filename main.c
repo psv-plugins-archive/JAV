@@ -170,6 +170,7 @@ int volume_profile() {
 		}
 
 		int output = get_output();
+		if (output < 0) { continue; }
 
 		if (last_output != output) {
 			int speaker_mute = get_speaker_mute();

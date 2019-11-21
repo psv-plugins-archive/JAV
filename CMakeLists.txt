@@ -22,7 +22,6 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   SceAVConfig_stub
-  SceCtrl_stub
   SceIofilemgr_stub
   SceKernelThreadMgr_stub
   SceLibKernel_stub
