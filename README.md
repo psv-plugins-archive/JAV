@@ -18,7 +18,7 @@ Download the latest version from [releases](https://github.com/cuevavirus/volume
 
 ```
 *main
-volume_profile.suprx
+ur0:tai/volume_profile.suprx
 ```
 
 This plugin supercedes NoAVLS so noavls.skprx can be removed from under `*KERNEL`.
