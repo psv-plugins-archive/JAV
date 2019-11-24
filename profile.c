@@ -1,5 +1,5 @@
 /*
-volume_profile - profile.c
+自動オーディオボリューム - profile.c
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "profile.h"
 #include "log.h"
 
-#define CONFIG_PATH "ur0:data/volume_profile.cfg"
+#define CONFIG_PATH "ur0:data/jav.cfg"
 
 audio_profile_t file_profile;
 audio_profile_t profile;

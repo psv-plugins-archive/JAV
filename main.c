@@ -1,5 +1,5 @@
 /*
-volume_profile - main.c
+自動オーディオボリューム - main.c
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
@@ -135,7 +135,7 @@ void SceShellMain_hang_exit(int output) {
 	apply_profile(output);
 }
 
-int volume_profile() {
+int jav() {
 	while (!vol_bar_ctx || !shell_mute_status) {
 		sceKernelDelayThread(50 * 1000);
 	}
@@ -211,11 +211,11 @@ int volume_profile() {
 
 int _start() __attribute__ ((weak, alias("module_start")));
 int module_start() {
-	LOG("\nvolume_profile module starting\n");
+	LOG("\njav module starting\n");
 
 	// create mutexes
-	top_func_enter_mtx = sceKernelCreateMutex("volume_profile_top_func_enter", 0, 0, 0);
-	top_func_exit_mtx = sceKernelCreateMutex("volume_profile_top_func_exit", 0, 0, 0);
+	top_func_enter_mtx = sceKernelCreateMutex("jav_top_func_enter", 0, 0, 0);
+	top_func_exit_mtx = sceKernelCreateMutex("jav_top_func_exit", 0, 0, 0);
 	if (top_func_enter_mtx < 0 || top_func_exit_mtx < 0) {
 		LOG("mutexes failed\n");
 		goto exit;
@@ -282,7 +282,7 @@ fw365:		offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
 	}
 
 	// start thread
-	thread_id = sceKernelCreateThread("volume_profile", volume_profile, 0x4C, 0x2000, 0, 0, 0);
+	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x2000, 0, 0, 0);
 	if (thread_id < 0) {
 		LOG("sceKernelCreateThread failed\n");
 		goto exit;
@@ -298,7 +298,7 @@ exit:
 }
 
 int module_stop() {
-	LOG("volume_profile module stopping\n");
+	LOG("jav module stopping\n");
 
 	// destroy mutexes
 	if (top_func_enter_mtx >= 0) { sceKernelDeleteMutex(top_func_enter_mtx); }
@@ -309,7 +309,7 @@ int module_stop() {
 		run_thread = 0;
 		sceKernelWaitThreadEnd(thread_id, 0, 0);
 		sceKernelDeleteThread(thread_id);
-		LOG("volume_profile thread stopped\n");
+		LOG("jav thread stopped\n");
 	}
 
 	// release hooks

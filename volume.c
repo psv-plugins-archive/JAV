@@ -1,5 +1,5 @@
 /*
-volume_profile - volume.c
+自動オーディオボリューム - volume.c
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify

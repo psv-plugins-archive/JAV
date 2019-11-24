@@ -1,8 +1,8 @@
-# volume_profile
+# 自動オーディオボリューム
 
 Automatically switch between your preferred speaker and headphone volumes.
 
-![demo.gif](https://github.com/cuevavirus/volume_profile/raw/assets/demo.gif)
+![demo.gif](https://github.com/cuevavirus/jav/raw/assets/demo.gif)
 
 ## Usage
 
@@ -14,11 +14,11 @@ Automatically switch between your preferred speaker and headphone volumes.
 
 Supported firmware versions: 3.60, 3.65-3.73
 
-Download the latest version from [releases](https://github.com/cuevavirus/volume_profile/releases) and install under `*main` of your taiHEN config.
+Download the latest version from [releases](https://github.com/cuevavirus/jav/releases) and install under `*main` of your taiHEN config.
 
 ```
 *main
-ur0:tai/volume_profile.suprx
+ur0:tai/jav.suprx
 ```
 
 This plugin supercedes NoAVLS so noavls.skprx can be removed from under `*KERNEL`.
