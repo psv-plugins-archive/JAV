@@ -1,5 +1,5 @@
-#ifndef VOLUME_H
-#define VOLUME_H
+#ifndef AUDIO_H
+#define AUDIO_H
 
 #define AVLS_MAX 0x15
 

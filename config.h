@@ -1,7 +1,7 @@
-#ifndef PROFILE_H
-#define PROFILE_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
-#include "volume.h"
+#include "audio.h"
 
 typedef struct {
 	int avls;

@@ -16,8 +16,8 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
 
 add_executable(${PROJECT_NAME}
   main.c
-  volume.c
-  profile.c
+  audio.c
+  config.c
 )
 
 target_link_libraries(${PROJECT_NAME}

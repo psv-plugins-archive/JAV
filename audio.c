@@ -1,5 +1,5 @@
 /*
-自動オーディオボリューム - volume.c
+自動オーディオボリューム - audio.c
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/avconfig.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/registrymgr.h>
-#include "volume.h"
+#include "audio.h"
 
 #define SLEEP_TIME (50 * 1000)
 #define SLEEP sceKernelDelayThread(SLEEP_TIME)

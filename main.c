@@ -27,8 +27,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
 #include <taihen.h>
-#include "volume.h"
-#include "profile.h"
+#include "audio.h"
+#include "config.h"
 #include "log.h"
 
 extern int ScePafToplevel_004D98CC(char *r1);

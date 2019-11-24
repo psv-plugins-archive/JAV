@@ -1,5 +1,5 @@
 /*
-自動オーディオボリューム - profile.c
+自動オーディオボリューム - config.c
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
-#include "profile.h"
+#include "config.h"
 #include "log.h"
 
 #define CONFIG_PATH "ur0:data/jav.cfg"
