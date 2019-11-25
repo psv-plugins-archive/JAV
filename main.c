@@ -115,7 +115,7 @@ void SceShellMain_hang_enter(void) {
 				|| info.numWaitThreads == 0) {
 			sceKernelDelayThread(10 * 1000);
 		}
-		if (set_mute_icon(profile.muted) == 0) {
+		if (set_mute_icon(config.muted) == 0) {
 			break;
 		} else {
 			sceKernelUnlockMutex(top_func_exit_mtx, 1);
@@ -123,17 +123,17 @@ void SceShellMain_hang_enter(void) {
 		}
 	}
 	// set this field to prevent shell from displaying a mute bar
-	audio_info->muted = profile.muted;
+	audio_info->muted = config.muted;
 }
 
 void SceShellMain_hang_exit(int output) {
 	sceKernelUnlockMutex(top_func_exit_mtx, 1);
-	apply_profile(output);
+	load_config(output);
 }
 
 int jav() {
 	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
-	if (load_profile() < 0) { reset_profile(); }
+	if (read_config() < 0) { reset_config(); }
 
 	// initialise from config
 	int last_output = get_output();
@@ -142,25 +142,25 @@ int jav() {
 	SceShellMain_hang_exit(last_output);
 	sceKernelUnlockMutex(top_func_enter_mtx, 1);
 
-	// profile is written to file after 3 seconds of no change
-	audio_profile_t profile_buffer;
-	sceClibMemcpy(&profile_buffer, &profile, sizeof(profile_buffer));
-	SceInt64 profile_last_changed = sceKernelGetSystemTimeWide();
+	// config is written to file after 3 seconds of no change
+	jav_config_t last_config;
+	sceClibMemcpy(&last_config, &config, sizeof(last_config));
+	SceInt64 config_last_changed = sceKernelGetSystemTimeWide();
 
 	while (run_thread) {
 		LOG_FLUSH();
 		sceKernelDelayThread(100 * 1000);
 		disable_avls_timer();
 
-		// persist profile settings
-		profile.avls = get_avls();
-		profile.volumes[last_output] = get_volume();
-		profile.muted = get_muted();
-		if (sceClibMemcmp(&profile_buffer, &profile, sizeof(profile_buffer)) != 0) {
-			sceClibMemcpy(&profile_buffer, &profile, sizeof(profile_buffer));
-			profile_last_changed = sceKernelGetSystemTimeWide();
-		} else if (sceKernelGetSystemTimeWide() - profile_last_changed >= 3 * 1000 * 1000) {
-			write_profile();
+		// persist config
+		config.avls = get_avls();
+		config.volumes[last_output] = get_volume();
+		config.muted = get_muted();
+		if (sceClibMemcmp(&last_config, &config, sizeof(last_config)) != 0) {
+			sceClibMemcpy(&last_config, &config, sizeof(last_config));
+			config_last_changed = sceKernelGetSystemTimeWide();
+		} else if (sceKernelGetSystemTimeWide() - config_last_changed >= 3 * 1000 * 1000) {
+			write_config();
 		}
 
 		int output = get_output();
@@ -169,13 +169,13 @@ int jav() {
 		if (last_output != output) {
 			// apply automatic mute
 			int speaker_mute = get_speaker_mute();
-			if (output == SPEAKER && speaker_mute) { profile.muted = 1; }
+			if (output == SPEAKER && speaker_mute) { config.muted = 1; }
 
 			sceKernelLockMutex(top_func_enter_mtx, 1, 0);
 			SceShellMain_hang_enter();
 			init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
-			if (profile.muted) {
-				set_vol_bar_muted(&audio_info->vol_bar, profile.avls);
+			if (config.muted) {
+				set_vol_bar_muted(&audio_info->vol_bar, config.avls);
 				SceShellMain_hang_exit(output);
 
 				// need to try many times to ensure mute
@@ -184,9 +184,9 @@ int jav() {
 					mute_on();
 				}
 			} else {
-				int cur_vol = profile.volumes[last_output];
-				int tgt_vol = profile.volumes[output];
-				int flags = profile.avls ? VOL_BAR_FLAG_AVLS : 0;
+				int cur_vol = config.volumes[last_output];
+				int tgt_vol = config.volumes[output];
+				int flags = config.avls ? VOL_BAR_FLAG_AVLS : 0;
 				set_vol_bar_lvl(&audio_info->vol_bar, cur_vol, flags);
 				SceShellMain_hang_exit(output);
 

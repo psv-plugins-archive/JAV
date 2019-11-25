@@ -23,48 +23,48 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define CONFIG_PATH "ur0:data/jav.cfg"
 
-audio_profile_t file_profile;
-audio_profile_t profile;
+jav_config_t file_config;
+jav_config_t config;
 
-void reset_profile(void) {
-	sceClibMemset(&file_profile, 0xFF, sizeof(file_profile));
-	sceClibMemset(&profile, 0, sizeof(profile));
-	profile.avls = get_avls();
-	profile.muted = get_muted();
+void reset_config(void) {
+	sceClibMemset(&file_config, 0xFF, sizeof(file_config));
+	sceClibMemset(&config, 0, sizeof(config));
+	config.avls = get_avls();
+	config.muted = get_muted();
 	int cur_vol = get_volume();
-	profile.volumes[SPEAKER] = cur_vol;
-	profile.volumes[HEADPHONE] = cur_vol;
-	LOG("profile reset\n");
+	config.volumes[SPEAKER] = cur_vol;
+	config.volumes[HEADPHONE] = cur_vol;
+	LOG("config reset\n");
 }
 
-int load_profile(void) {
+int read_config(void) {
 	SceUID fd = sceIoOpen(CONFIG_PATH, SCE_O_RDONLY, 0777);
 	if (fd < 0) { goto fail; }
 
-	int ret = sceIoRead(fd, &file_profile, sizeof(file_profile));
+	int ret = sceIoRead(fd, &file_config, sizeof(file_config));
 	sceIoClose(fd);
-	if (ret != sizeof(file_profile)) { goto fail; }
+	if (ret != sizeof(file_config)) { goto fail; }
 
-	if (file_profile.avls != 0 && file_profile.avls != 1) { goto fail; }
-	if (file_profile.muted != 0 && file_profile.muted != 1) { goto fail; }
+	if (file_config.avls != 0 && file_config.avls != 1) { goto fail; }
+	if (file_config.muted != 0 && file_config.muted != 1) { goto fail; }
 	for (int i = 0; i < N_OUTPUTS; i++) {
-		if (file_profile.volumes[i] < 0 || 30 < file_profile.volumes[i]) {
+		if (file_config.volumes[i] < 0 || 30 < file_config.volumes[i]) {
 			goto fail;
 		}
 	}
 
-	sceClibMemcpy(&profile, &file_profile, sizeof(profile));
-	LOG("profile loaded\n");
+	sceClibMemcpy(&config, &file_config, sizeof(config));
+	LOG("config loaded\n");
 	return 0;
 
 fail:
-	sceClibMemset(&file_profile, 0xFF, sizeof(file_profile));
-	LOG("profile failed to load\n");
+	sceClibMemset(&file_config, 0xFF, sizeof(file_config));
+	LOG("config failed to load\n");
 	return -1;
 }
 
-int write_profile(void) {
-	if (sceClibMemcmp(&profile, &file_profile, sizeof(profile)) == 0) {
+int write_config(void) {
+	if (sceClibMemcmp(&config, &file_config, sizeof(config)) == 0) {
 		return 0;
 	}
 
@@ -72,28 +72,28 @@ int write_profile(void) {
 	SceUID fd = sceIoOpen(CONFIG_PATH, SCE_O_WRONLY | SCE_O_CREAT, 0777);
 	if (fd < 0) { return -1; }
 
-	int ret = sceIoWrite(fd, &profile, sizeof(profile));
+	int ret = sceIoWrite(fd, &config, sizeof(config));
 	sceIoClose(fd);
-	if (ret != sizeof(profile)) {
-		LOG("profile failed to write\n");
+	if (ret != sizeof(config)) {
+		LOG("config failed to write\n");
 		return -1;
 	} else {
-		sceClibMemcpy(&file_profile, &profile, sizeof(file_profile));
-		LOG("profile written to file\n");
+		sceClibMemcpy(&file_config, &config, sizeof(file_config));
+		LOG("config written to file\n");
 		return 0;
 	}
 }
 
-void apply_profile(int output) {
-	if (profile.avls) {
+void load_config(int output) {
+	if (config.avls) {
 		for (int i = 0; i < N_OUTPUTS; i++) {
-			int vol = profile.volumes[i];
-			profile.volumes[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
+			int vol = config.volumes[i];
+			config.volumes[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
 		}
 	}
-	set_avls(profile.avls);
-	set_volume(profile.volumes[output]);
-	if (profile.muted) { mute_on(); }
-	LOG("profile output %d applied\n", output);
-	LOG("avls: %d muted: %d vol: %d\n", profile.avls, profile.muted, profile.volumes[output]);
+	set_avls(config.avls);
+	set_volume(config.volumes[output]);
+	if (config.muted) { mute_on(); }
+	LOG("config output %d applied\n", output);
+	LOG("avls: %d muted: %d vol: %d\n", config.avls, config.muted, config.volumes[output]);
 }

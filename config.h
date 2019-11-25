@@ -7,13 +7,13 @@ typedef struct {
 	int avls;
 	int muted;
 	int volumes[N_OUTPUTS];
-} audio_profile_t;
+} jav_config_t;
 
-extern audio_profile_t profile;
+extern jav_config_t config;
 
-void reset_profile(void);
-int load_profile(void);
-int write_profile(void);
-void apply_profile(int output);
+void reset_config(void);
+int read_config(void);
+int write_config(void);
+void load_config(int output);
 
 #endif
