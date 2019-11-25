@@ -27,6 +27,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
 #include <taihen.h>
+#include "sce_shell.h"
 #include "audio.h"
 #include "config.h"
 #include "log.h"
@@ -41,21 +42,15 @@ SceUID top_func_exit_mtx = -1;
 SceUID hook_id[N_HOOKS];
 tai_hook_ref_t hook_ref[N_HOOKS];
 
-void *vol_bar_ctx = 0;
-volatile char *shell_mute_status = 0;
+audio_info_t *audio_info = NULL;
 SceUID thread_id = -1;
 int run_thread = 1;
 
-int top_func(int r1, int r2) {
-	if (!vol_bar_ctx) {
-		vol_bar_ctx = (void*)(r1 + 0x20);
-		// set this field to prevent shell from
-		// displaying a second mute bar
-		shell_mute_status = (char*)(r1 + 0x49);
-	}
+int top_func(audio_info_t *a, button_info_t *p) {
+	if (!audio_info) { audio_info = a; }
 
 	if (sceKernelTryLockMutex(top_func_enter_mtx, 1) == 0) {
-		int ret = TAI_CONTINUE(int, hook_ref[0], r1, r2);
+		int ret = TAI_CONTINUE(int, hook_ref[0], a, p);
 		sceKernelUnlockMutex(top_func_enter_mtx, 1);
 		return ret;
 	}
@@ -65,35 +60,35 @@ int top_func(int r1, int r2) {
 	return 0;
 }
 
-int init_vol_bar(void *r1, int r2) {
-	return TAI_CONTINUE(int, hook_ref[1], r1, r2);
+int init_vol_bar(volume_bar_t *v, int mode) {
+	return TAI_CONTINUE(int, hook_ref[1], v, mode);
 }
 
-int set_vol_bar_lvl(void *r1, int r2, int r3) {
-	return TAI_CONTINUE(int, hook_ref[2], r1, r2, r3);
+int set_vol_bar_lvl(volume_bar_t *v, int level, int flags) {
+	return TAI_CONTINUE(int, hook_ref[2], v, level, flags);
 }
 
-int set_vol_bar_muted(void *r1, int r2) {
-	return TAI_CONTINUE(int, hook_ref[3], r1, r2);
+int set_vol_bar_muted(volume_bar_t *v, int avls) {
+	return TAI_CONTINUE(int, hook_ref[3], v, avls);
 }
 
-int free_vol_bar(void *r1) {
-	return TAI_CONTINUE(int, hook_ref[4], r1);
+int free_vol_bar(volume_bar_t *v) {
+	return TAI_CONTINUE(int, hook_ref[4], v);
 }
 
 void progress_vol_bar(int start, int end, int flag) {
 	if (start < end) {
 		for (int i = start; i <= end; i++) {
-			set_vol_bar_lvl(vol_bar_ctx, i, flag);
+			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
 			sceKernelDelayThread(20 * 1000);
 		}
 	} else if (start > end) {
 		for (int i = start; i >= end; i--) {
-			set_vol_bar_lvl(vol_bar_ctx, i, flag);
+			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
 			sceKernelDelayThread(20 * 1000);
 		}
 	} else {
-		set_vol_bar_lvl(vol_bar_ctx, start, flag);
+		set_vol_bar_lvl(&audio_info->vol_bar, start, flag);
 	}
 }
 
@@ -127,7 +122,8 @@ void SceShellMain_hang_enter(void) {
 			sceKernelDelayThread(50 * 1000);
 		}
 	}
-	*shell_mute_status = profile.muted;
+	// set this field to prevent shell from displaying a mute bar
+	audio_info->muted = profile.muted;
 }
 
 void SceShellMain_hang_exit(int output) {
@@ -136,9 +132,7 @@ void SceShellMain_hang_exit(int output) {
 }
 
 int jav() {
-	while (!vol_bar_ctx || !shell_mute_status) {
-		sceKernelDelayThread(50 * 1000);
-	}
+	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
 	if (load_profile() < 0) { reset_profile(); }
 
 	// initialise from config
@@ -173,17 +167,15 @@ int jav() {
 		if (output < 0) { continue; }
 
 		if (last_output != output) {
+			// apply automatic mute
 			int speaker_mute = get_speaker_mute();
-			if (output == SPEAKER && speaker_mute) {
-				LOG("speaker_mute applied\n");
-				profile.muted = 1;
-			}
+			if (output == SPEAKER && speaker_mute) { profile.muted = 1; }
 
 			sceKernelLockMutex(top_func_enter_mtx, 1, 0);
 			SceShellMain_hang_enter();
-			init_vol_bar(vol_bar_ctx, 1);
+			init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
 			if (profile.muted) {
-				set_vol_bar_muted(vol_bar_ctx, profile.avls);
+				set_vol_bar_muted(&audio_info->vol_bar, profile.avls);
 				SceShellMain_hang_exit(output);
 
 				// need to try many times to ensure mute
@@ -194,14 +186,15 @@ int jav() {
 			} else {
 				int cur_vol = profile.volumes[last_output];
 				int tgt_vol = profile.volumes[output];
-				set_vol_bar_lvl(vol_bar_ctx, cur_vol, profile.avls << 2);
+				int flags = profile.avls ? VOL_BAR_FLAG_AVLS : 0;
+				set_vol_bar_lvl(&audio_info->vol_bar, cur_vol, flags);
 				SceShellMain_hang_exit(output);
 
 				sceKernelDelayThread(400 * 1000);
-				progress_vol_bar(cur_vol, tgt_vol, profile.avls << 2);
+				progress_vol_bar(cur_vol, tgt_vol, flags);
 				sceKernelDelayThread(800 * 1000);
 			}
-			free_vol_bar(vol_bar_ctx);
+			free_vol_bar(&audio_info->vol_bar);
 			sceKernelUnlockMutex(top_func_enter_mtx, 1);
 			last_output = output;
 		}
