@@ -23,7 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define CONFIG_PATH "ur0:data/jav.cfg"
 
-jav_config_t file_config;
+static jav_config_t file_config;
 jav_config_t config;
 
 void reset_config(void) {

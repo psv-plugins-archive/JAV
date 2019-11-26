@@ -35,18 +35,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 extern int ScePafToplevel_004D98CC(char *r1);
 extern int ScePafToplevel_1DF2C6FD(int r1, int r2);
 
-SceUID top_func_enter_mtx = -1;
-SceUID top_func_exit_mtx = -1;
+static SceUID top_func_enter_mtx = -1;
+static SceUID top_func_exit_mtx = -1;
 
 #define N_HOOKS 5
-SceUID hook_id[N_HOOKS];
-tai_hook_ref_t hook_ref[N_HOOKS];
+static SceUID hook_id[N_HOOKS];
+static tai_hook_ref_t hook_ref[N_HOOKS];
 
-audio_info_t *audio_info = NULL;
-SceUID thread_id = -1;
-int run_thread = 1;
+static audio_info_t *audio_info = NULL;
+static SceUID thread_id = -1;
+static int run_thread = 1;
 
-int top_func(audio_info_t *a, button_info_t *p) {
+static int top_func(audio_info_t *a, button_info_t *p) {
 	if (!audio_info) { audio_info = a; }
 
 	if (sceKernelTryLockMutex(top_func_enter_mtx, 1) == 0) {
@@ -60,23 +60,23 @@ int top_func(audio_info_t *a, button_info_t *p) {
 	return 0;
 }
 
-int init_vol_bar(volume_bar_t *v, int mode) {
+static int init_vol_bar(volume_bar_t *v, int mode) {
 	return TAI_CONTINUE(int, hook_ref[1], v, mode);
 }
 
-int set_vol_bar_lvl(volume_bar_t *v, int level, int flags) {
+static int set_vol_bar_lvl(volume_bar_t *v, int level, int flags) {
 	return TAI_CONTINUE(int, hook_ref[2], v, level, flags);
 }
 
-int set_vol_bar_muted(volume_bar_t *v, int avls) {
+static int set_vol_bar_muted(volume_bar_t *v, int avls) {
 	return TAI_CONTINUE(int, hook_ref[3], v, avls);
 }
 
-int free_vol_bar(volume_bar_t *v) {
+static int free_vol_bar(volume_bar_t *v) {
 	return TAI_CONTINUE(int, hook_ref[4], v);
 }
 
-void progress_vol_bar(int start, int end, int flag) {
+static void progress_vol_bar(int start, int end, int flag) {
 	if (start < end) {
 		for (int i = start; i <= end; i++) {
 			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
@@ -94,7 +94,7 @@ void progress_vol_bar(int start, int end, int flag) {
 
 typedef int (*set_mute_icon_ptr)(int);
 
-int set_mute_icon(int v) {
+static int set_mute_icon(int v) {
 	if (sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_PAF) < 0) {
 		return -1;
 	}
@@ -107,7 +107,7 @@ int set_mute_icon(int v) {
 	}
 }
 
-void SceShellMain_hang_enter(void) {
+static void SceShellMain_hang_enter(void) {
 	for (;;) {
 		sceKernelLockMutex(top_func_exit_mtx, 1, 0);
 		SceKernelMutexInfo info;
@@ -126,12 +126,12 @@ void SceShellMain_hang_enter(void) {
 	audio_info->muted = config.muted;
 }
 
-void SceShellMain_hang_exit(int output) {
+static void SceShellMain_hang_exit(int output) {
 	sceKernelUnlockMutex(top_func_exit_mtx, 1);
 	load_config(output);
 }
 
-int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
+static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
 	if (read_config() < 0) { reset_config(); }
 
