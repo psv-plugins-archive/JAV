@@ -131,7 +131,7 @@ void SceShellMain_hang_exit(int output) {
 	load_config(output);
 }
 
-int jav() {
+int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
 	if (read_config() < 0) { reset_config(); }
 
@@ -203,7 +203,7 @@ int jav() {
 }
 
 int _start() __attribute__ ((weak, alias("module_start")));
-int module_start() {
+int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("\njav module starting\n");
 
 	// create mutexes
@@ -290,7 +290,7 @@ exit:
 	return SCE_KERNEL_START_SUCCESS;
 }
 
-int module_stop() {
+int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("jav module stopping\n");
 
 	// destroy mutexes
