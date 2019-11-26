@@ -55,7 +55,7 @@ static int top_func(audio_info_t *a, button_info_t *p) {
 		return ret;
 	}
 
-	sceKernelLockMutex(top_func_exit_mtx, 1, 0);
+	sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
 	sceKernelUnlockMutex(top_func_exit_mtx, 1);
 	return 0;
 }
@@ -109,7 +109,7 @@ static int set_mute_icon(int v) {
 
 static void SceShellMain_hang_enter(void) {
 	for (;;) {
-		sceKernelLockMutex(top_func_exit_mtx, 1, 0);
+		sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
 		SceKernelMutexInfo info;
 		while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
 				|| info.numWaitThreads == 0) {
@@ -137,7 +137,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 
 	// initialise from config
 	int last_output = get_output();
-	sceKernelLockMutex(top_func_enter_mtx, 1, 0);
+	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
 	SceShellMain_hang_enter();
 	SceShellMain_hang_exit(last_output);
 	sceKernelUnlockMutex(top_func_enter_mtx, 1);
@@ -171,7 +171,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 			int speaker_mute = get_speaker_mute();
 			if (output == SPEAKER && speaker_mute) { config.muted = 1; }
 
-			sceKernelLockMutex(top_func_enter_mtx, 1, 0);
+			sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
 			SceShellMain_hang_enter();
 			init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
 			if (config.muted) {
@@ -207,8 +207,8 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("\njav module starting\n");
 
 	// create mutexes
-	top_func_enter_mtx = sceKernelCreateMutex("jav_top_func_enter", 0, 0, 0);
-	top_func_exit_mtx = sceKernelCreateMutex("jav_top_func_exit", 0, 0, 0);
+	top_func_enter_mtx = sceKernelCreateMutex("jav_top_func_enter", 0, 0, NULL);
+	top_func_exit_mtx = sceKernelCreateMutex("jav_top_func_exit", 0, 0, NULL);
 	if (top_func_enter_mtx < 0 || top_func_exit_mtx < 0) {
 		LOG("mutexes failed\n");
 		goto exit;
@@ -275,12 +275,12 @@ fw365:		offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
 	}
 
 	// start thread
-	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x2000, 0, 0, 0);
+	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x2000, 0, 0, NULL);
 	if (thread_id < 0) {
 		LOG("sceKernelCreateThread failed\n");
 		goto exit;
 	}
-	if (sceKernelStartThread(thread_id, 0, 0) < 0) {
+	if (sceKernelStartThread(thread_id, 0, NULL) < 0) {
 		LOG("sceKernelStartThread failed\n");
 		goto exit;
 	}
@@ -300,7 +300,7 @@ int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	// stop thread
 	if (thread_id >= 0) {
 		run_thread = 0;
-		sceKernelWaitThreadEnd(thread_id, 0, 0);
+		sceKernelWaitThreadEnd(thread_id, NULL, NULL);
 		sceKernelDeleteThread(thread_id);
 		LOG("jav thread stopped\n");
 	}
