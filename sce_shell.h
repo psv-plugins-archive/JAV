@@ -40,7 +40,7 @@ typedef struct {
 	short pad_12;
 	int volume;
 	int unk_18;
-	int sound_output; // from sceAVConfigGetVolCtrlEnable
+	int vol_ctrl; // from sceAVConfigGetVolCtrlEnable
 // 0x20
 	volume_bar_t vol_bar;
 // 0x48
