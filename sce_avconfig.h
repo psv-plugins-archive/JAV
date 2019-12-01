@@ -3,7 +3,7 @@
 
 extern int sceAVConfigWriteRegSystemVol(int vol);
 
-// vol_ctrl returns garbage when volume cannot be controlled
+// vol_ctrl will not be set when volume cannot be controlled
 extern int sceAVConfigGetVolCtrlEnable(int *vol_ctrl, int *muted, int *avls);
 #define AVCONFIG_VOLCTRL_UNK_0     0
 #define AVCONFIG_VOLCTRL_ONBOARD   1
@@ -27,5 +27,18 @@ extern int sceAVConfigChangeReg(int k, int v);
 #define AVCONFIG_REG_SOUND_OUTPUT 2
 #define AVCONFIG_REG_AVLS_TIMER   3
 #define AVCONFIG_REG_SPEAKER_MUTE 4
+
+extern int sceAVConfigGetBtVol(int *unk, int *vol);
+
+extern int sceAVConfigSendVolKey(int k);
+#define AVCONFIG_VOLKEY_END  0
+#define AVCONFIG_VOLKEY_UP   1
+#define AVCONFIG_VOLKEY_DOWN 2
+
+#define AVCONFIG_CALLBACK_FLAG_UNK_1      0x01
+#define AVCONFIG_CALLBACK_FLAG_BT_VOL     0x02
+#define AVCONFIG_CALLBACK_FLAG_AVLS       0x04
+#define AVCONFIG_CALLBACK_FLAG_FORCE_AVLS 0x08
+#define AVCONFIG_CALLBACK_FLAG_MUTED      0x10
 
 #endif
