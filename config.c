@@ -31,9 +31,8 @@ void reset_config(void) {
 	sceClibMemset(&config, 0, sizeof(config));
 	config.avls = get_avls();
 	config.muted = get_muted();
-	int cur_vol = get_ob_volume();
 	for (int i = 0; i < N_OUTPUTS_ONBOARD; i++) {
-		config.ob_volume[i] = cur_vol;
+		config.ob_volume[i] = 0;
 	}
 	LOG("config reset\n");
 }
