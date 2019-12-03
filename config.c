@@ -31,9 +31,10 @@ void reset_config(void) {
 	sceClibMemset(&config, 0, sizeof(config));
 	config.avls = get_avls();
 	config.muted = get_muted();
-	int cur_vol = get_volume();
-	config.volumes[SPEAKER] = cur_vol;
-	config.volumes[HEADPHONE] = cur_vol;
+	int cur_vol = get_ob_volume();
+	for (int i = 0; i < N_OUTPUTS_ONBOARD; i++) {
+		config.ob_volume[i] = cur_vol;
+	}
 	LOG("config reset\n");
 }
 
@@ -47,8 +48,8 @@ int read_config(void) {
 
 	if (file_config.avls != 0 && file_config.avls != 1) { goto fail; }
 	if (file_config.muted != 0 && file_config.muted != 1) { goto fail; }
-	for (int i = 0; i < N_OUTPUTS; i++) {
-		if (file_config.volumes[i] < 0 || 30 < file_config.volumes[i]) {
+	for (int i = 0; i < N_OUTPUTS_ONBOARD; i++) {
+		if (file_config.ob_volume[i] < 0 || 30 < file_config.ob_volume[i]) {
 			goto fail;
 		}
 	}
@@ -86,14 +87,14 @@ int write_config(void) {
 
 void load_config(int output) {
 	if (config.avls) {
-		for (int i = 0; i < N_OUTPUTS; i++) {
-			int vol = config.volumes[i];
-			config.volumes[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
+		for (int i = 0; i < N_OUTPUTS_ONBOARD; i++) {
+			int vol = config.ob_volume[i];
+			config.ob_volume[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
 		}
 	}
 	set_avls(config.avls);
-	set_volume(config.volumes[output]);
+	set_ob_volume(config.ob_volume[output]);
 	if (config.muted) { mute_on(); }
 	LOG("config output %d applied\n", output);
-	LOG("avls: %d muted: %d vol: %d\n", config.avls, config.muted, config.volumes[output]);
+	LOG("avls: %d muted: %d vol: %d\n", config.avls, config.muted, config.ob_volume[output]);
 }

@@ -39,15 +39,15 @@ int get_output(void) {
 	}
 }
 
-int get_volume(void) {
+int get_ob_volume(void) {
 	int vol;
 	while (sceAVConfigGetSystemVol(&vol) < 0) { SLEEP; }
 	return vol;
 }
 
-void set_volume(int vol) {
+void set_ob_volume(int vol) {
 	// sceAVConfigSetSystemVol can return 0 but volume is still not set
-	while (sceAVConfigSetSystemVol(vol) < 0 || get_volume() != vol) { SLEEP; }
+	while (sceAVConfigSetSystemVol(vol) < 0 || get_ob_volume() != vol) { SLEEP; }
 	while (sceAVConfigWriteRegSystemVol(vol) < 0) { SLEEP; }
 }
 

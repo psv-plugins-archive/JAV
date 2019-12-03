@@ -5,12 +5,12 @@
 
 // these functions will retry until they succeed
 int get_output(void);
-#define N_OUTPUTS 2
-#define SPEAKER 0
+#define N_OUTPUTS_ONBOARD 0x2
+#define SPEAKER   0
 #define HEADPHONE 1
 
-int get_volume(void);
-void set_volume(int vol);
+int get_ob_volume(void);
+void set_ob_volume(int vol);
 
 int get_muted(void);
 void mute_on(void);

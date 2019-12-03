@@ -154,7 +154,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 
 		// persist config
 		config.avls = get_avls();
-		config.volumes[last_output] = get_volume();
+		config.ob_volume[last_output] = get_ob_volume();
 		config.muted = get_muted();
 		if (sceClibMemcmp(&last_config, &config, sizeof(last_config)) != 0) {
 			sceClibMemcpy(&last_config, &config, sizeof(last_config));
@@ -184,8 +184,8 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 					mute_on();
 				}
 			} else {
-				int cur_vol = config.volumes[last_output];
-				int tgt_vol = config.volumes[output];
+				int cur_vol = config.ob_volume[last_output];
+				int tgt_vol = config.ob_volume[output];
 				int flags = config.avls ? VOL_BAR_FLAG_AVLS : 0;
 				set_vol_bar_lvl(&audio_info->vol_bar, cur_vol, flags);
 				SceShellMain_hang_exit(output);
