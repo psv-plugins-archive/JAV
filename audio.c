@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define SLEEP sceKernelDelayThread(SLEEP_TIME)
 #define SOUND_REG "/CONFIG/SOUND"
 
-int get_output(void) {
+int get_device(void) {
 	int r1;
 	while (sceAVConfigGetConnectedAudioDevice(&r1) < 0) { SLEEP; }
 	switch (r1) {

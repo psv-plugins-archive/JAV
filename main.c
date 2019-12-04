@@ -126,9 +126,9 @@ static void SceShellMain_hang_enter(void) {
 	audio_info->muted = config.muted;
 }
 
-static void SceShellMain_hang_exit(int output) {
+static void SceShellMain_hang_exit(int device) {
 	sceKernelUnlockMutex(top_func_exit_mtx, 1);
-	load_config(output);
+	load_config(device);
 }
 
 static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
@@ -136,16 +136,16 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	if (read_config() < 0) { reset_config(); }
 
 	// initialise from config
-	int last_output = get_output();
+	int old_device = get_device();
 	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
 	SceShellMain_hang_enter();
-	SceShellMain_hang_exit(last_output);
+	SceShellMain_hang_exit(old_device);
 	sceKernelUnlockMutex(top_func_enter_mtx, 1);
 
 	// config is written to file after 3 seconds of no change
-	jav_config_t last_config;
-	sceClibMemcpy(&last_config, &config, sizeof(last_config));
-	SceInt64 config_last_changed = sceKernelGetSystemTimeWide();
+	jav_config_t old_config;
+	sceClibMemcpy(&old_config, &config, sizeof(old_config));
+	SceInt64 config_changed = sceKernelGetSystemTimeWide();
 
 	while (run_thread) {
 		LOG_FLUSH();
@@ -154,29 +154,29 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 
 		// persist config
 		config.avls = get_avls();
-		config.ob_volume[last_output] = get_ob_volume();
+		config.ob_volume[old_device] = get_ob_volume();
 		config.muted = get_muted();
-		if (sceClibMemcmp(&last_config, &config, sizeof(last_config)) != 0) {
-			sceClibMemcpy(&last_config, &config, sizeof(last_config));
-			config_last_changed = sceKernelGetSystemTimeWide();
-		} else if (sceKernelGetSystemTimeWide() - config_last_changed >= 3 * 1000 * 1000) {
+		if (sceClibMemcmp(&old_config, &config, sizeof(old_config)) != 0) {
+			sceClibMemcpy(&old_config, &config, sizeof(old_config));
+			config_changed = sceKernelGetSystemTimeWide();
+		} else if (sceKernelGetSystemTimeWide() - config_changed >= 3 * 1000 * 1000) {
 			write_config();
 		}
 
-		int output = get_output();
-		if (output < 0) { continue; }
+		int device = get_device();
+		if (device < 0) { continue; }
 
-		if (last_output != output) {
+		if (old_device != device) {
 			// apply automatic mute
 			int speaker_mute = get_speaker_mute();
-			if (output == SPEAKER && speaker_mute) { config.muted = 1; }
+			if (device == SPEAKER && speaker_mute) { config.muted = 1; }
 
 			sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
 			SceShellMain_hang_enter();
 			init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
 			if (config.muted) {
 				set_vol_bar_muted(&audio_info->vol_bar, config.avls);
-				SceShellMain_hang_exit(output);
+				SceShellMain_hang_exit(device);
 
 				// need to try many times to ensure mute
 				for (int i = 0; i < 15; i++) {
@@ -184,19 +184,19 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 					mute_on();
 				}
 			} else {
-				int cur_vol = config.ob_volume[last_output];
-				int tgt_vol = config.ob_volume[output];
+				int old_vol = config.ob_volume[old_device];
+				int new_vol = config.ob_volume[device];
 				int flags = config.avls ? VOL_BAR_FLAG_AVLS : 0;
-				set_vol_bar_lvl(&audio_info->vol_bar, cur_vol, flags);
-				SceShellMain_hang_exit(output);
+				set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
+				SceShellMain_hang_exit(device);
 
 				sceKernelDelayThread(400 * 1000);
-				progress_vol_bar(cur_vol, tgt_vol, flags);
+				progress_vol_bar(old_vol, new_vol, flags);
 				sceKernelDelayThread(800 * 1000);
 			}
 			free_vol_bar(&audio_info->vol_bar);
 			sceKernelUnlockMutex(top_func_enter_mtx, 1);
-			last_output = output;
+			old_device = device;
 		}
 	}
 	return 0;
