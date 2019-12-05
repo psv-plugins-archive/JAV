@@ -22,6 +22,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Product manager: dots-tb
 // Funded by: CBPS
 
+#include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/threadmgr.h>
@@ -30,10 +32,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "sce_shell.h"
 #include "audio.h"
 #include "config.h"
+#include "util.h"
 #include "log.h"
 
 extern int ScePafToplevel_004D98CC(char *r1);
 extern int ScePafToplevel_1DF2C6FD(int r1, int r2);
+
+extern char jav_kernel_skprx[];
+extern int jav_kernel_skprx_len;
+static SceUID javk_id = -1;
 
 static SceUID top_func_enter_mtx = -1;
 static SceUID top_func_exit_mtx = -1;
@@ -226,9 +233,32 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	return 0;
 }
 
+static int extract_jav_kernel(void) {
+	sceIoMkdir(CONFIG_BASE_DIR, 0777);
+	sceIoMkdir(CONFIG_JAV_DIR, 0777);
+	SceUID fd = sceIoOpen(JAV_KERNEL_PATH, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+	RLZ(fd);
+
+	int ret = sceIoWrite(fd, jav_kernel_skprx, jav_kernel_skprx_len);
+	sceIoClose(fd);
+	if (ret == jav_kernel_skprx_len) {
+		LOG("%s extraction complete\n", JAV_KERNEL_PATH);
+		return 0;
+	} else {
+		LOG("%s extraction failed\n", JAV_KERNEL_PATH);
+		return -1;
+	}
+}
+
 int _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("\njav module starting\n");
+
+	// extract and load JAVKernel
+	if (extract_jav_kernel() != 0) { goto exit; }
+	javk_id = taiLoadStartKernelModule(JAV_KERNEL_PATH, 0, NULL, 0);
+	if (javk_id < 0) { goto exit; }
+	LOG("JAVKernel started\n");
 
 	// create mutexes
 	top_func_enter_mtx = sceKernelCreateMutex("jav_top_func_enter", 0, 0, NULL);
@@ -316,6 +346,11 @@ exit:
 
 int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("jav module stopping\n");
+
+	// stop JAVKernel
+	if (javk_id >= 0) {
+		taiStopUnloadKernelModule(javk_id, 0, NULL, 0, NULL, NULL);
+	}
 
 	// destroy mutexes
 	if (top_func_enter_mtx >= 0) { sceKernelDeleteMutex(top_func_enter_mtx); }
