@@ -14,6 +14,8 @@ include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib -Wall -Wextra -O3 -std=c99")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
 
+link_directories("${CMAKE_BINARY_DIR}/ScePafToplevel_stubs")
+
 # kernel plugin
 
 set(K_NAME "${PROJECT_NAME}_kernel")
@@ -62,6 +64,17 @@ target_link_libraries("${U_NAME}"
   SceSysmodule_stub
   gcc
   taihen_stub
+)
+
+add_custom_target(ScePafToplevel_stub_weak
+  DEPENDS ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
+)
+
+add_custom_command(OUTPUT ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
+  COMMAND vita-libs-gen "${CMAKE_SOURCE_DIR}/ScePafToplevel.yml" ScePafToplevel_stubs
+  COMMAND make -C ScePafToplevel_stubs
+  COMMAND mv ScePafToplevel_stubs/libScePaf_stub_weak.a ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
+  COMMENT "Building ScePafToplevel stubs"
 )
 
 vita_create_self("${U_SELF}" "${U_NAME}" CONFIG exports.yml UNSAFE)
