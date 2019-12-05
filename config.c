@@ -23,8 +23,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "util.h"
 #include "log.h"
 
-#define CONFIG_PATH "ur0:data/jav.cfg"
-
 static jav_config_t file_config;
 jav_config_t config;
 
@@ -97,7 +95,8 @@ int write_config(void) {
 		return 0;
 	}
 
-	sceIoMkdir("ur0:data/", 0777);
+	sceIoMkdir(CONFIG_BASE_DIR, 0777);
+	sceIoMkdir(CONFIG_JAV_DIR, 0777);
 	SceUID fd = sceIoOpen(CONFIG_PATH, SCE_O_WRONLY | SCE_O_CREAT, 0777);
 	if (fd < 0) { return -1; }
 

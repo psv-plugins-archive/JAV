@@ -1,6 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#define CONFIG_BASE_DIR "ux0:data/"
+#define CONFIG_JAV_DIR  CONFIG_BASE_DIR "jav/"
+#define CONFIG_PATH     CONFIG_JAV_DIR "config.bin"
+
 #define OB2BT(x) (((x) * 127 + 15) / 30)
 #define BT2OB(x) (((x) * 30 + 63) / 127)
 
