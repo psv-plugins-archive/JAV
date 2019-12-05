@@ -16,6 +16,7 @@ void reset_config(void);
 int read_config(void);
 int write_config(void);
 
-void load_config(int device);
+int load_config(int device);
+int save_config(int device);
 
 #endif

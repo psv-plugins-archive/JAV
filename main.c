@@ -107,55 +107,101 @@ static int set_mute_icon(int v) {
 	}
 }
 
-static void SceShellMain_hang_enter(void) {
-	for (;;) {
-		sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
-		SceKernelMutexInfo info;
-		while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
-				|| info.numWaitThreads == 0) {
-			sceKernelDelayThread(10 * 1000);
-		}
-		if (set_mute_icon(config.muted) == 0) {
-			break;
-		} else {
-			sceKernelUnlockMutex(top_func_exit_mtx, 1);
-			sceKernelDelayThread(50 * 1000);
-		}
-	}
-	// set this field to prevent shell from displaying a mute bar
-	audio_info->muted = config.muted;
+static void SceShellMain_hang_exit(void) {
+	sceKernelUnlockMutex(top_func_exit_mtx, 1);
 }
 
-static void SceShellMain_hang_exit(int device) {
-	sceKernelUnlockMutex(top_func_exit_mtx, 1);
-	load_config(device);
+static int SceShellMain_hang_enter(int device, int muted) {
+	sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
+	SceKernelMutexInfo info;
+	while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
+			|| info.numWaitThreads == 0) {
+		sceKernelDelayThread(10 * 1000);
+	}
+
+	if (get_device() == device) {
+		int new_vol = load_config(device);
+		if (new_vol >= 0 && set_mute_icon(muted) == 0) {
+			// keep SceShell state consistent to prevent extra mute bar
+			// from displaying and wrong volume from being set
+			audio_info->muted = muted;
+			audio_info->volume = new_vol;
+			return new_vol;
+		}
+	}
+	SceShellMain_hang_exit();
+	return -1;
+}
+
+static int switch_audio(int device, int avls, int muted, int old_vol) {
+	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
+	int new_vol = SceShellMain_hang_enter(device, muted);
+
+	if (new_vol >= 0) {
+		init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
+		if (muted) {
+			set_vol_bar_muted(&audio_info->vol_bar, avls);
+			SceShellMain_hang_exit();
+
+			// need to try many times to ensure mute
+			for (int i = 0; i < 15; i++) {
+				sceKernelDelayThread(100 * 1000);
+				mute_on();
+			}
+		} else {
+			int flags = avls ? VOL_BAR_FLAG_AVLS : 0;
+			set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
+			SceShellMain_hang_exit();
+
+			sceKernelDelayThread(400 * 1000);
+			progress_vol_bar(old_vol, new_vol, flags);
+			sceKernelDelayThread(800 * 1000);
+		}
+		free_vol_bar(&audio_info->vol_bar);
+	}
+
+	sceKernelUnlockMutex(top_func_enter_mtx, 1);
+	return new_vol;
 }
 
 static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
 	if (read_config() < 0) { reset_config(); }
 
-	// initialise from config
-	int old_device = get_device();
-	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
-	SceShellMain_hang_enter();
-	SceShellMain_hang_exit(old_device);
-	sceKernelUnlockMutex(top_func_enter_mtx, 1);
-
 	// config is written to file after 3 seconds of no change
 	jav_config_t old_config;
 	sceClibMemcpy(&old_config, &config, sizeof(old_config));
 	SceInt64 config_changed = sceKernelGetSystemTimeWide();
+
+	int old_device = -1, old_vol = 0;
 
 	while (run_thread) {
 		LOG_FLUSH();
 		sceKernelDelayThread(100 * 1000);
 		disable_avls_timer();
 
+		int device = get_device();
+		if (device < 0) { continue; }
+
+		if (old_device != device) {
+			int speaker_mute = get_speaker_mute();
+			if (speaker_mute >= 0) {
+				if (device == SPEAKER && speaker_mute) { config.muted = 1; }
+
+				int new_vol = switch_audio(device, config.avls, config.muted, old_vol);
+				if (new_vol >= 0) {
+					old_device = device;
+					old_vol = new_vol;
+					continue;
+				}
+			}
+
+			old_device = -1;
+			continue;
+		}
+
 		// persist config
-		config.avls = get_avls();
-		config.ob_volume[old_device] = get_ob_volume();
-		config.muted = get_muted();
+		int new_vol = save_config(device);
 		if (sceClibMemcmp(&old_config, &config, sizeof(old_config)) != 0) {
 			sceClibMemcpy(&old_config, &config, sizeof(old_config));
 			config_changed = sceKernelGetSystemTimeWide();
@@ -163,41 +209,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 			write_config();
 		}
 
-		int device = get_device();
-		if (device < 0) { continue; }
-
-		if (old_device != device) {
-			// apply automatic mute
-			int speaker_mute = get_speaker_mute();
-			if (device == SPEAKER && speaker_mute) { config.muted = 1; }
-
-			sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
-			SceShellMain_hang_enter();
-			init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
-			if (config.muted) {
-				set_vol_bar_muted(&audio_info->vol_bar, config.avls);
-				SceShellMain_hang_exit(device);
-
-				// need to try many times to ensure mute
-				for (int i = 0; i < 15; i++) {
-					sceKernelDelayThread(100 * 1000);
-					mute_on();
-				}
-			} else {
-				int old_vol = config.ob_volume[old_device];
-				int new_vol = config.ob_volume[device];
-				int flags = config.avls ? VOL_BAR_FLAG_AVLS : 0;
-				set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
-				SceShellMain_hang_exit(device);
-
-				sceKernelDelayThread(400 * 1000);
-				progress_vol_bar(old_vol, new_vol, flags);
-				sceKernelDelayThread(800 * 1000);
-			}
-			free_vol_bar(&audio_info->vol_bar);
-			sceKernelUnlockMutex(top_func_enter_mtx, 1);
-			old_device = device;
-		}
+		if (new_vol >= 0) { old_vol = new_vol; }
 	}
 	return 0;
 }
@@ -274,7 +286,7 @@ fw365:		offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
 		goto exit;
 	}
 
-	// start thread
+	// start thread (same priority as SceShellMain)
 	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x2000, 0, 0, NULL);
 	if (thread_id < 0) {
 		LOG("sceKernelCreateThread failed\n");

@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
 #include "config.h"
+#include "util.h"
 #include "log.h"
 
 #define CONFIG_PATH "ur0:data/jav.cfg"
@@ -29,11 +30,6 @@ jav_config_t config;
 void reset_config(void) {
 	sceClibMemset(&file_config, 0xFF, sizeof(file_config));
 	sceClibMemset(&config, 0, sizeof(config));
-	config.avls = get_avls();
-	config.muted = get_muted();
-	for (int i = 0; i < N_DEVICE_ONBOARD; i++) {
-		config.ob_volume[i] = 0;
-	}
 	LOG("config reset\n");
 }
 
@@ -84,16 +80,29 @@ int write_config(void) {
 	}
 }
 
-void load_config(int device) {
+int load_config(int device) {
 	if (config.avls) {
 		for (int i = 0; i < N_DEVICE_ONBOARD; i++) {
 			int vol = config.ob_volume[i];
 			config.ob_volume[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
 		}
 	}
-	set_avls(config.avls);
-	set_ob_volume(config.ob_volume[device]);
-	if (config.muted) { mute_on(); }
-	LOG("config device %d applied\n", device);
-	LOG("avls: %d muted: %d vol: %d\n", config.avls, config.muted, config.ob_volume[device]);
+	int vol = config.ob_volume[device];
+	LOG("load %d vol %d muted %d avls %d\n", device, vol, config.muted, config.avls);
+	RLZ(set_avls(config.avls));
+	RLZ(set_ob_volume(vol));
+	if (config.muted) { RLZ(mute_on()); }
+	return vol;
+}
+
+int save_config(int device) {
+	int avls, muted, vol;
+	RLZ(avls = get_avls());
+	RLZ(muted = get_muted());
+	RLZ(vol = get_ob_volume());
+	RNE(get_device(), device);
+	config.avls = avls;
+	config.muted = muted;
+	config.ob_volume[device] = vol;
+	return vol;
 }
