@@ -94,10 +94,11 @@ static void progress_vol_bar(int start, int end, int flag) {
 
 typedef int (*set_mute_icon_ptr)(int);
 
-static int set_mute_icon(int v) {
+static int set_mute_icon(int device, int muted) {
 	if (sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_PAF) < 0) {
 		return -1;
 	}
+	int v = device == BLUETOOTH ? 0 : muted;
 	int a = ScePafToplevel_004D98CC("indicator_plugin");
 	if (a != 0 && (a = ScePafToplevel_1DF2C6FD(a, 1)) != 0) {
 		(*(set_mute_icon_ptr*)(a + 0x20))(v);
@@ -111,7 +112,7 @@ static void SceShellMain_hang_exit(void) {
 	sceKernelUnlockMutex(top_func_exit_mtx, 1);
 }
 
-static int SceShellMain_hang_enter(int device, int muted) {
+static int SceShellMain_hang_enter(int device, int mac0, int mac1, int muted) {
 	sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
 	SceKernelMutexInfo info;
 	while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
@@ -119,9 +120,10 @@ static int SceShellMain_hang_enter(int device, int muted) {
 		sceKernelDelayThread(10 * 1000);
 	}
 
-	if (get_device() == device) {
-		int new_vol = load_config(device);
-		if (new_vol >= 0 && set_mute_icon(muted) == 0) {
+	int mac0_, mac1_;
+	if (get_device(&mac0_, &mac1_) == device && mac0_ == mac0 && mac1_ == mac1) {
+		int new_vol = load_config(device, mac0, mac1);
+		if (new_vol >= 0 && set_mute_icon(device, muted) == 0) {
 			// keep SceShell state consistent to prevent extra mute bar
 			// from displaying and wrong volume from being set
 			audio_info->muted = muted;
@@ -133,13 +135,13 @@ static int SceShellMain_hang_enter(int device, int muted) {
 	return -1;
 }
 
-static int switch_audio(int device, int avls, int muted, int old_vol) {
+static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int old_vol) {
 	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
-	int new_vol = SceShellMain_hang_enter(device, muted);
+	int new_vol = SceShellMain_hang_enter(device, mac0, mac1, muted);
 
 	if (new_vol >= 0) {
 		init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
-		if (muted) {
+		if (muted && device != BLUETOOTH) {
 			set_vol_bar_muted(&audio_info->vol_bar, avls);
 			SceShellMain_hang_exit();
 
@@ -149,7 +151,10 @@ static int switch_audio(int device, int avls, int muted, int old_vol) {
 				mute_on();
 			}
 		} else {
-			int flags = avls ? VOL_BAR_FLAG_AVLS : 0;
+			int flags = (avls ? VOL_BAR_FLAG_AVLS : 0) | (muted ? VOL_BAR_FLAG_MUTED : 0);
+			if (device == BLUETOOTH) {
+				flags = (flags & ~VOL_BAR_FLAG_AVLS) | VOL_BAR_FLAG_BT;
+			}
 			set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
 			SceShellMain_hang_exit();
 
@@ -173,35 +178,42 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	sceClibMemcpy(&old_config, &config, sizeof(old_config));
 	SceInt64 config_changed = sceKernelGetSystemTimeWide();
 
-	int old_device = -1, old_vol = 0;
+	int old_device = -1, old_mac0 = 0, old_mac1 = 0, old_vol = 0;
 
 	while (run_thread) {
 		LOG_FLUSH();
 		sceKernelDelayThread(100 * 1000);
 		disable_avls_timer();
 
-		int device = get_device();
+		int mac0, mac1;
+		int device = get_device(&mac0, &mac1);
 		if (device < 0) { continue; }
 
-		if (old_device != device) {
+		if (old_device != device || old_mac0 != mac0 || old_mac1 != mac1) {
 			int speaker_mute = get_speaker_mute();
 			if (speaker_mute >= 0) {
-				if (device == SPEAKER && speaker_mute) { config.muted = 1; }
+				if (old_device == HEADPHONE && device == SPEAKER && speaker_mute) { config.muted = 1; }
+				// this is default behaviour
+				if (old_device == BLUETOOTH && device != BLUETOOTH) { config.muted = 1; }
 
-				int new_vol = switch_audio(device, config.avls, config.muted, old_vol);
+				int new_vol = switch_audio(device, mac0, mac1, config.avls, config.muted, old_vol);
 				if (new_vol >= 0) {
 					old_device = device;
+					old_mac0 = mac0;
+					old_mac1 = mac1;
 					old_vol = new_vol;
 					continue;
 				}
 			}
 
 			old_device = -1;
+			old_mac0 = 0;
+			old_mac1 = 0;
 			continue;
 		}
 
 		// persist config
-		int new_vol = save_config(device);
+		int new_vol = save_config(device, mac0, mac1);
 		if (sceClibMemcmp(&old_config, &config, sizeof(old_config)) != 0) {
 			sceClibMemcpy(&old_config, &config, sizeof(old_config));
 			config_changed = sceKernelGetSystemTimeWide();
@@ -287,7 +299,7 @@ fw365:		offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
 	}
 
 	// start thread (same priority as SceShellMain)
-	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x2000, 0, 0, NULL);
+	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x3000, 0, 0, NULL);
 	if (thread_id < 0) {
 		LOG("sceKernelCreateThread failed\n");
 		goto exit;

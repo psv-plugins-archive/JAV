@@ -1,6 +1,9 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#define OB2BT(x) (((x) * 127 + 15) / 30)
+#define BT2OB(x) (((x) * 30 + 63) / 127)
+
 #define RLZ(x) do {\
 	int __ret__ = (x);\
 	if (__ret__ < 0) {\

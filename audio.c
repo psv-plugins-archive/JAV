@@ -18,18 +18,37 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/avconfig.h>
 #include <psp2/registrymgr.h>
 #include "sce_avconfig.h"
+#include "sce_bt.h"
 #include "audio.h"
 #include "util.h"
 #include "log.h"
 
 #define SOUND_REG "/CONFIG/SOUND"
 
-int get_device(void) {
+static int get_connected_bt(int *mac0, int *mac1) {
+	SceBtRegisteredInfo bt_info[N_DEVICE_BLUETOOTH];
+	int ret = sceBtGetRegisteredInfo(0, 0, bt_info, N_DEVICE_BLUETOOTH);
+	for (int i = 0; i < ret; i++) {
+		SceBtRegisteredInfo *j = bt_info + i;
+		int con_info = sceBtGetConnectingInfo(j->mac0, j->mac1);
+		if (j->bt_profile & BT_PROFILE_AVRCP && con_info == BT_CON_CONNECTED_AUDIO_OUT) {
+			*mac0 = j->mac0;
+			*mac1 = j->mac1;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int get_device(int *mac0, int* mac1) {
 	int r0, r1, r2, dev;
+	*mac0 = *mac1 = 0;
 
 	RLZ(sceAVConfigGetConnectedAudioDevice(&r0));
 	if (r0 == (AVCONFIG_CONDEV_VITA_0 | AVCONFIG_CONDEV_VITA_8)) {
 		dev = SPEAKER;
+	} else if (r0 & AVCONFIG_CONDEV_BT_AUDIO_OUT) {
+		dev = BLUETOOTH;
 	} else if (r0 & AVCONFIG_CONDEV_AUDIO_OUT) {
 		dev = HEADPHONE;
 	} else {
@@ -37,7 +56,11 @@ int get_device(void) {
 	}
 
 	RLZ(sceAVConfigGetVolCtrlEnable(&r0, &r1, &r2));
-	if (r0 == AVCONFIG_VOLCTRL_ONBOARD) {
+	if ((dev == SPEAKER || dev == HEADPHONE) && r0 == AVCONFIG_VOLCTRL_ONBOARD) {
+		return dev;
+	} else if (dev == BLUETOOTH
+			&& r0 == AVCONFIG_VOLCTRL_BLUETOOTH
+			&& get_connected_bt(mac0, mac1) == 0) {
 		return dev;
 	} else {
 		return -1;
@@ -117,6 +140,23 @@ int set_speaker_mute(int v) {
 		RLZ(sceAVConfigChangeReg(AVCONFIG_REG_SPEAKER_MUTE, v));
 		RNE(get_speaker_mute(), v);
 		RLZ(sceRegMgrSetKeyInt(SOUND_REG, "speaker_mute", v));
+	}
+	return 0;
+}
+
+int get_bt_volume(int mac0, int mac1) {
+	int vol;
+	RLZ(vol = sceBtAvrcpReadVolume(mac0, mac1));
+	return BT2OB(vol);
+}
+
+int set_bt_volume(int mac0, int mac1, int vol) {
+	int current = get_bt_volume(mac0, mac1);
+	RLZ(current);
+	if (current != vol) {
+		vol = OB2BT(vol);
+		RLZ(sceBtAvrcpSendVolume(mac0, mac1, vol));
+		RNE(sceBtAvrcpReadVolume(mac0, mac1), vol);
 	}
 	return 0;
 }
