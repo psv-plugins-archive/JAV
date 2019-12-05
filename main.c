@@ -279,37 +279,23 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	// determine offsets
 	int offset[N_HOOKS];
 	switch (mod_info.module_nid) {
-		case 0x0552F692:
+		case 0x0552F692: // 3.60 retail
 			LOG("firmware 3.60 retail\n");
 			offset[0] = 0x145422; offset[1] = 0x145C86; offset[2] = 0x146374;
 			offset[3] = 0x147054; offset[4] = 0x145C5C;
 			break;
-		case 0x5549BF1F:
-			LOG("firmware 3.65 retail\n");
-fw365:		offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
+		case 0x5549BF1F: // 3.65 retail
+		case 0x34B4D82E: // 3.67 retail
+		case 0x12DAC0F3: // 3.68 retail
+		case 0x0703C828: // 3.69 retail
+		case 0x2053B5A5: // 3.70 retail
+		case 0xF476E785: // 3.71 retail
+		case 0x939FFBE9: // 3.72 retail
+		case 0x734D476A: // 3.73 retail
+			LOG("firmware 3.65-3.73 retail\n");
+			offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
 			offset[3] = 0x1470AC; offset[4] = 0x145CB4;
 			break;
-		case 0x34B4D82E:
-			LOG("firmware 3.67 retail\n");
-			goto fw365;
-		case 0x12DAC0F3:
-			LOG("firmware 3.68 retail\n");
-			goto fw365;
-		case 0x0703C828:
-			LOG("firmware 3.69 retail\n");
-			goto fw365;
-		case 0x2053B5A5:
-			LOG("firmware 3.70 retail\n");
-			goto fw365;
-		case 0xF476E785:
-			LOG("firmware 3.71 retail\n");
-			goto fw365;
-		case 0x939FFBE9:
-			LOG("firmware 3.72 retail\n");
-			goto fw365;
-		case 0x734D476A:
-			LOG("firmware 3.73 retail\n");
-			goto fw365;
 		default:
 			LOG("firmware unsupported\n");
 			goto exit;
