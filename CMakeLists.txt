@@ -60,6 +60,7 @@ target_link_libraries("${U_NAME}"
   ScePafToplevel_stub_weak
   SceRegistryMgr_stub
   SceSysmodule_stub
+  gcc
   taihen_stub
 )
 

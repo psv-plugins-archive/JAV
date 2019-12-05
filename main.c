@@ -84,18 +84,18 @@ static int free_vol_bar(volume_bar_t *v) {
 }
 
 static void progress_vol_bar(int start, int end, int flag) {
+	int steps = (start < end ? end - start : start - end) + 1;
+	int delay = 800 / steps;
 	if (start < end) {
 		for (int i = start; i <= end; i++) {
 			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
-			sceKernelDelayThread(20 * 1000);
-		}
-	} else if (start > end) {
-		for (int i = start; i >= end; i--) {
-			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
-			sceKernelDelayThread(20 * 1000);
+			sceKernelDelayThread(delay * 1000);
 		}
 	} else {
-		set_vol_bar_lvl(&audio_info->vol_bar, start, flag);
+		for (int i = start; i >= end; i--) {
+			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
+			sceKernelDelayThread(delay * 1000);
+		}
 	}
 }
 
@@ -153,7 +153,7 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 			SceShellMain_hang_exit();
 
 			// need to try many times to ensure mute
-			for (int i = 0; i < 15; i++) {
+			for (int i = 0; i < 16; i++) {
 				sceKernelDelayThread(100 * 1000);
 				mute_on();
 			}
@@ -165,7 +165,6 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 			set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
 			SceShellMain_hang_exit();
 
-			sceKernelDelayThread(400 * 1000);
 			progress_vol_bar(old_vol, new_vol, flags);
 			sceKernelDelayThread(800 * 1000);
 		}
