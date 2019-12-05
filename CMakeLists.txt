@@ -14,13 +14,16 @@ include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib -Wall -Wextra -O2 -std=c99")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
 
-add_executable(${PROJECT_NAME}
+set(U_NAME "${PROJECT_NAME}")
+set(U_SELF "${U_NAME}.suprx")
+
+add_executable("${U_NAME}"
   main.c
   audio.c
   config.c
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries("${U_NAME}"
   SceAVConfig_stub
   SceBt_stub
   SceIofilemgr_stub
@@ -32,4 +35,4 @@ target_link_libraries(${PROJECT_NAME}
   taihen_stub
 )
 
-vita_create_self(${PROJECT_NAME}.suprx ${PROJECT_NAME} CONFIG exports.yml UNSAFE)
+vita_create_self("${U_SELF}" "${U_NAME}" CONFIG exports.yml UNSAFE)
