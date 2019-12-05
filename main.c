@@ -233,6 +233,38 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	return 0;
 }
 
+static void cleanup(void) {
+	if (thread_id >= 0) {
+		run_thread = 0;
+		sceKernelWaitThreadEnd(thread_id, NULL, NULL);
+		sceKernelDeleteThread(thread_id);
+		LOG("JAVMain stopped and deleted\n");
+	}
+
+	for (int i = 0; i < N_HOOKS; i++) {
+		if (hook_id[i] >= 0) {
+			taiHookRelease(hook_id[i], hook_ref[i]);
+			LOG("hook %d released\n", i);
+		}
+	}
+
+	if (top_func_enter_mtx >= 0) {
+		sceKernelDeleteMutex(top_func_enter_mtx);
+		LOG("JAVTopFuncEnterMtx deleted\n");
+	}
+	if (top_func_exit_mtx >= 0) {
+		sceKernelDeleteMutex(top_func_exit_mtx);
+		LOG("JAVTopFuncExitMtx deleted\n");
+	}
+
+	if (javk_id >= 0) {
+		taiStopUnloadKernelModule(javk_id, 0, NULL, 0, NULL, NULL);
+		LOG("JAVKernel stopped and unloaded\n");
+	}
+
+	LOG("JAV cleanup complete\n");
+}
+
 static int extract_jav_kernel(void) {
 	sceIoMkdir(CONFIG_BASE_DIR, 0777);
 	sceIoMkdir(CONFIG_JAV_DIR, 0777);
@@ -252,29 +284,26 @@ static int extract_jav_kernel(void) {
 
 int _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
-	LOG("\njav module starting\n");
+	LOG("JAV starting\n");
 
 	// extract and load JAVKernel
-	if (extract_jav_kernel() != 0) { goto exit; }
+	GLZ(extract_jav_kernel());
 	javk_id = taiLoadStartKernelModule(JAV_KERNEL_PATH, 0, NULL, 0);
-	if (javk_id < 0) { goto exit; }
-	LOG("JAVKernel started\n");
+	GLZ(javk_id);
+	LOG("JAVKernel loaded and started\n");
 
 	// create mutexes
-	top_func_enter_mtx = sceKernelCreateMutex("jav_top_func_enter", 0, 0, NULL);
-	top_func_exit_mtx = sceKernelCreateMutex("jav_top_func_exit", 0, 0, NULL);
-	if (top_func_enter_mtx < 0 || top_func_exit_mtx < 0) {
-		LOG("mutexes failed\n");
-		goto exit;
-	}
+	top_func_enter_mtx = sceKernelCreateMutex("JAVTopFuncEnterMtx", 0, 0, NULL);
+	GLZ(top_func_enter_mtx);
+	top_func_exit_mtx = sceKernelCreateMutex("JAVTopFuncExitMtx", 0, 0, NULL);
+	GLZ(top_func_exit_mtx);
+	LOG("JAV mutexes created\n");
 
 	// get module info
 	tai_module_info_t mod_info;
 	mod_info.size = sizeof(mod_info);
-	if (taiGetModuleInfo("SceShell", &mod_info) < 0) {
-		LOG("taiGetModuleInfo failed\n");
-		goto exit;
-	}
+	GLZ(taiGetModuleInfo("SceShell", &mod_info));
+	LOG("SceShell module info acquired\n");
 
 	// determine offsets
 	int offset[N_HOOKS];
@@ -298,63 +327,36 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 			break;
 		default:
 			LOG("firmware unsupported\n");
-			goto exit;
+			goto fail;
 	}
 
 	// setup hooks
-	int hooks_succeed = 1;
 	void *hook[N_HOOKS] = {top_func, init_vol_bar, set_vol_bar_lvl, set_vol_bar_muted, free_vol_bar};
 	for (int i = 0; i < N_HOOKS; i++) {
 		hook_id[i] = taiHookFunctionOffset(hook_ref+i, mod_info.modid, 0, offset[i], 1, hook[i]);
-		if (hook_id[i] < 0) { hooks_succeed = 0; }
+		GLZ(hook_id[i]);
 		LOG("hook %d: %08X\n", i, hook_id[i]);
-	}
-	if (!hooks_succeed) {
-		LOG("hooks failed\n");
-		goto exit;
 	}
 
 	// start thread (same priority as SceShellMain)
-	thread_id = sceKernelCreateThread("jav", jav, 0x4C, 0x3000, 0, 0, NULL);
-	if (thread_id < 0) {
-		LOG("sceKernelCreateThread failed\n");
-		goto exit;
-	}
-	if (sceKernelStartThread(thread_id, 0, NULL) < 0) {
-		LOG("sceKernelStartThread failed\n");
-		goto exit;
-	}
+	thread_id = sceKernelCreateThread("JAVMain", jav, 0x4C, 0x3000, 0, 0, NULL);
+	GLZ(thread_id);
+	LOG("JAVMain created\n");
+	GLZ(sceKernelStartThread(thread_id, 0, NULL));
+	LOG("JAVMain started\n");
 
-exit:
-	LOG_FLUSH();
+	LOG("JAV start success\n");
 	return SCE_KERNEL_START_SUCCESS;
+
+fail:
+	LOG("JAV start failed\n");
+	cleanup();
+	return SCE_KERNEL_START_FAILED;
 }
 
 int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
-	LOG("jav module stopping\n");
-
-	// stop JAVKernel
-	if (javk_id >= 0) {
-		taiStopUnloadKernelModule(javk_id, 0, NULL, 0, NULL, NULL);
-	}
-
-	// destroy mutexes
-	if (top_func_enter_mtx >= 0) { sceKernelDeleteMutex(top_func_enter_mtx); }
-	if (top_func_exit_mtx >= 0) { sceKernelDeleteMutex(top_func_exit_mtx); }
-
-	// stop thread
-	if (thread_id >= 0) {
-		run_thread = 0;
-		sceKernelWaitThreadEnd(thread_id, NULL, NULL);
-		sceKernelDeleteThread(thread_id);
-		LOG("jav thread stopped\n");
-	}
-
-	// release hooks
-	for (int i = 0; i < N_HOOKS; i++) {
-		if (hook_id[i] >= 0) { taiHookRelease(hook_id[i], hook_ref[i]); }
-	}
-
-	LOG_FLUSH();
+	LOG("JAV stopping\n");
+	cleanup();
+	LOG("JAV stop success\n");
 	return SCE_KERNEL_STOP_SUCCESS;
 }
