@@ -29,6 +29,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
 #include <taihen.h>
+#include "sce_kernel.h"
 #include "sce_shell.h"
 #include "audio.h"
 #include "config.h"
@@ -43,7 +44,11 @@ extern int jav_kernel_skprx_len;
 static SceUID javk_id = -1;
 
 static SceUID top_func_enter_mtx = -1;
-static SceUID top_func_exit_mtx = -1;
+
+static SceUID jav_evf = -1;
+#define JAV_EVF_JAVMAIN_RUN          0x01
+#define JAV_EVF_SCESHELLMAIN_RUN     0x10
+#define JAV_EVF_SCESHELLMAIN_WAITING 0x20
 
 #define N_HOOKS 5
 static SceUID hook_id[N_HOOKS];
@@ -51,7 +56,6 @@ static tai_hook_ref_t hook_ref[N_HOOKS];
 
 static audio_info_t *audio_info = NULL;
 static SceUID thread_id = -1;
-static int run_thread = 1;
 
 static int top_func(audio_info_t *a, button_info_t *p) {
 	if (!audio_info) { audio_info = a; }
@@ -62,8 +66,10 @@ static int top_func(audio_info_t *a, button_info_t *p) {
 		return ret;
 	}
 
-	sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
-	sceKernelUnlockMutex(top_func_exit_mtx, 1);
+	if (sceKernelPollEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL) < 0) {
+		sceKernelSetEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_WAITING);
+		sceKernelWaitEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL, NULL);
+	}
 	return 0;
 }
 
@@ -115,17 +121,17 @@ static int set_mute_icon(int device, int muted) {
 	}
 }
 
-static void SceShellMain_hang_exit(void) {
-	sceKernelUnlockMutex(top_func_exit_mtx, 1);
+static void SceShellMain_run(void) {
+	sceKernelSetEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_RUN);
 }
 
-static int SceShellMain_hang_enter(int device, int mac0, int mac1, int muted) {
-	sceKernelLockMutex(top_func_exit_mtx, 1, NULL);
-	SceKernelMutexInfo info;
-	while ((info.size = sizeof(info), sceKernelGetMutexInfo(top_func_exit_mtx, &info)) < 0
-			|| info.numWaitThreads == 0) {
-		sceKernelDelayThread(10 * 1000);
-	}
+static int SceShellMain_wait(int device, int mac0, int mac1, int muted) {
+	sceKernelClearEventFlag(jav_evf, ~JAV_EVF_SCESHELLMAIN_RUN);
+	sceKernelWaitEventFlag(jav_evf,
+		JAV_EVF_SCESHELLMAIN_WAITING,
+		SCE_KERNEL_EVF_WAITMODE_OR | SCE_KERNEL_EVF_WAITMODE_CLEAR_PAT,
+		NULL,
+		NULL);
 
 	int mac0_, mac1_;
 	if (get_device(&mac0_, &mac1_) == device && mac0_ == mac0 && mac1_ == mac1) {
@@ -138,19 +144,19 @@ static int SceShellMain_hang_enter(int device, int mac0, int mac1, int muted) {
 			return new_vol;
 		}
 	}
-	SceShellMain_hang_exit();
+	SceShellMain_run();
 	return -1;
 }
 
 static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int old_vol) {
 	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
-	int new_vol = SceShellMain_hang_enter(device, mac0, mac1, muted);
+	int new_vol = SceShellMain_wait(device, mac0, mac1, muted);
 
 	if (new_vol >= 0) {
 		init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
 		if (muted && device != BLUETOOTH) {
 			set_vol_bar_muted(&audio_info->vol_bar, avls);
-			SceShellMain_hang_exit();
+			SceShellMain_run();
 
 			// need to try many times to ensure mute
 			for (int i = 0; i < 16; i++) {
@@ -163,7 +169,7 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 				flags = (flags & ~VOL_BAR_FLAG_AVLS) | VOL_BAR_FLAG_BT;
 			}
 			set_vol_bar_lvl(&audio_info->vol_bar, old_vol, flags);
-			SceShellMain_hang_exit();
+			SceShellMain_run();
 
 			progress_vol_bar(old_vol, new_vol, flags);
 			sceKernelDelayThread(800 * 1000);
@@ -186,7 +192,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 
 	int old_device = -1, old_mac0 = 0, old_mac1 = 0, old_vol = 0;
 
-	while (run_thread) {
+	while (sceKernelPollEventFlag(jav_evf, JAV_EVF_JAVMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL) == 0) {
 		LOG_FLUSH();
 		sceKernelDelayThread(100 * 1000);
 		disable_avls_timer();
@@ -234,7 +240,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 
 static void cleanup(void) {
 	if (thread_id >= 0) {
-		run_thread = 0;
+		sceKernelClearEventFlag(jav_evf, ~JAV_EVF_JAVMAIN_RUN);
 		sceKernelWaitThreadEnd(thread_id, NULL, NULL);
 		sceKernelDeleteThread(thread_id);
 		LOG("JAVMain stopped and deleted\n");
@@ -251,9 +257,10 @@ static void cleanup(void) {
 		sceKernelDeleteMutex(top_func_enter_mtx);
 		LOG("JAVTopFuncEnterMtx deleted\n");
 	}
-	if (top_func_exit_mtx >= 0) {
-		sceKernelDeleteMutex(top_func_exit_mtx);
-		LOG("JAVTopFuncExitMtx deleted\n");
+
+	if (jav_evf >= 0) {
+		sceKernelDeleteEventFlag(jav_evf);
+		LOG("JAVEventFlag deleted\n");
 	}
 
 	if (javk_id >= 0) {
@@ -291,12 +298,18 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	GLZ(javk_id);
 	LOG("JAVKernel loaded and started\n");
 
-	// create mutexes
+	// create mutex
 	top_func_enter_mtx = sceKernelCreateMutex("JAVTopFuncEnterMtx", 0, 0, NULL);
 	GLZ(top_func_enter_mtx);
-	top_func_exit_mtx = sceKernelCreateMutex("JAVTopFuncExitMtx", 0, 0, NULL);
-	GLZ(top_func_exit_mtx);
-	LOG("JAV mutexes created\n");
+	LOG("JAVTopFuncEnterMtx created\n");
+
+	// create event flag
+	jav_evf = sceKernelCreateEventFlag("JAVEventFlag",
+		SCE_KERNEL_EVF_ATTR_TH_PRIO | SCE_KERNEL_EVF_ATTR_MULTI,
+		JAV_EVF_JAVMAIN_RUN | JAV_EVF_SCESHELLMAIN_RUN,
+		NULL);
+	GLZ(jav_evf);
+	LOG("JAVEventFlag created\n");
 
 	// get module info
 	tai_module_info_t mod_info;
