@@ -43,7 +43,7 @@ extern char jav_kernel_skprx[];
 extern int jav_kernel_skprx_len;
 static SceUID javk_id = -1;
 
-static SceUID top_func_enter_mtx = -1;
+static SceKernelLwMutexWork top_func_mtx __attribute__ ((aligned (8)));
 
 static SceUID jav_evf = -1;
 #define JAV_EVF_JAVMAIN_RUN          0x01
@@ -60,9 +60,9 @@ static SceUID thread_id = -1;
 static int top_func(audio_info_t *a, button_info_t *p) {
 	if (!audio_info) { audio_info = a; }
 
-	if (sceKernelTryLockMutex(top_func_enter_mtx, 1) == 0) {
+	if (sceKernelTryLockLwMutex(&top_func_mtx, 1) == 0) {
 		int ret = TAI_CONTINUE(int, hook_ref[0], a, p);
-		sceKernelUnlockMutex(top_func_enter_mtx, 1);
+		sceKernelUnlockLwMutex(&top_func_mtx, 1);
 		return ret;
 	}
 
@@ -149,7 +149,7 @@ static int SceShellMain_wait(int device, int mac0, int mac1, int muted) {
 }
 
 static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int old_vol) {
-	sceKernelLockMutex(top_func_enter_mtx, 1, NULL);
+	sceKernelLockLwMutex(&top_func_mtx, 1, NULL);
 	int new_vol = SceShellMain_wait(device, mac0, mac1, muted);
 
 	if (new_vol >= 0) {
@@ -177,7 +177,7 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 		free_vol_bar(&audio_info->vol_bar);
 	}
 
-	sceKernelUnlockMutex(top_func_enter_mtx, 1);
+	sceKernelUnlockLwMutex(&top_func_mtx, 1);
 	return new_vol;
 }
 
@@ -253,10 +253,8 @@ static void cleanup(void) {
 		}
 	}
 
-	if (top_func_enter_mtx >= 0) {
-		sceKernelDeleteMutex(top_func_enter_mtx);
-		LOG("JAVTopFuncEnterMtx deleted\n");
-	}
+	sceKernelDeleteLwMutex(&top_func_mtx);
+	LOG("JAVTopFuncMtx deleted\n");
 
 	if (jav_evf >= 0) {
 		sceKernelDeleteEventFlag(jav_evf);
@@ -299,9 +297,8 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("JAVKernel loaded and started\n");
 
 	// create mutex
-	top_func_enter_mtx = sceKernelCreateMutex("JAVTopFuncEnterMtx", 0, 0, NULL);
-	GLZ(top_func_enter_mtx);
-	LOG("JAVTopFuncEnterMtx created\n");
+	GLZ(sceKernelCreateLwMutex(&top_func_mtx, "JAVTopFuncMtx", SCE_KERNEL_MUTEX_ATTR_TH_FIFO, 0, NULL));
+	LOG("JAVTopFuncMtx created\n");
 
 	// create event flag
 	jav_evf = sceKernelCreateEventFlag("JAVEventFlag",
