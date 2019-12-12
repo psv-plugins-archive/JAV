@@ -63,6 +63,19 @@ static tai_hook_ref_t top_func_hook_ref = -1;
 #define HOOK_TOP_FUNC(x) (top_func_hook_id = taiHookFunctionOffset(&top_func_hook_ref, SceShell_id, 0, top_func_offset, 1, (x)))
 
 static SceUID thread_id = -1;
+static SceUID jav_timer = -1;
+
+static void reset_jav_timer(SceKernelSysClock delay) {
+	sceKernelStopTimer(jav_timer);
+	sceKernelSetTimerTimeWide(jav_timer, 0);
+	sceKernelClearEvent(jav_timer, ~SCE_KERNEL_EVENT_TIMER);
+	sceKernelSetTimerEvent(jav_timer, SCE_KERNEL_TIMER_TYPE_PULSE_EVENT, &delay, 1);
+	sceKernelStartTimer(jav_timer);
+}
+
+static void wait_jav_timer(void) {
+	sceKernelWaitEvent(jav_timer, SCE_KERNEL_EVENT_TIMER, NULL, NULL, NULL);
+}
 
 static int top_func_hook(audio_info_t *a, button_info_t *p) {
 	if (sceKernelTryLockLwMutex(&top_func_mtx, 1) == 0) {
@@ -80,16 +93,17 @@ static int top_func_hook(audio_info_t *a, button_info_t *p) {
 
 static void progress_vol_bar(audio_info_t *audio_info, int start, int end, int flag) {
 	int steps = (start < end ? end - start : start - end) + 1;
-	int delay = 800 / steps;
+	int delay = 800 * 1000 / steps;
+	reset_jav_timer(delay);
 	if (start < end) {
 		for (int i = start; i <= end; i++) {
 			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
-			sceKernelDelayThread(delay * 1000);
+			wait_jav_timer();
 		}
 	} else {
 		for (int i = start; i >= end; i--) {
 			set_vol_bar_lvl(&audio_info->vol_bar, i, flag);
-			sceKernelDelayThread(delay * 1000);
+			wait_jav_timer();
 		}
 	}
 }
@@ -148,8 +162,9 @@ static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, au
 			SceShellMain_run();
 
 			// need to try many times to ensure mute
+			reset_jav_timer(100 * 1000);
 			for (int i = 0; i < 16; i++) {
-				sceKernelDelayThread(100 * 1000);
+				wait_jav_timer();
 				mute_on();
 			}
 		} else {
@@ -161,7 +176,8 @@ static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, au
 			SceShellMain_run();
 
 			progress_vol_bar(audio_info, old_vol, new_vol, flags);
-			sceKernelDelayThread(800 * 1000);
+			reset_jav_timer(800 * 1000);
+			wait_jav_timer();
 		}
 		free_vol_bar(&audio_info->vol_bar);
 	}
@@ -181,10 +197,10 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 	SceInt64 config_changed = sceKernelGetSystemTimeWide();
 
 	int old_device = -1, old_mac0 = 0, old_mac1 = 0, old_vol = 0;
+	reset_jav_timer(100 * 1000);
 
 	while (sceKernelPollEventFlag(jav_evf, JAV_EVF_JAVMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL) == 0) {
-		LOG_FLUSH();
-		sceKernelDelayThread(100 * 1000);
+		wait_jav_timer();
 		disable_avls_timer();
 
 		int mac0, mac1;
@@ -204,6 +220,7 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 					old_mac0 = mac0;
 					old_mac1 = mac1;
 					old_vol = new_vol;
+					reset_jav_timer(100 * 1000);
 					continue;
 				}
 			}
@@ -211,6 +228,7 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 			old_device = -1;
 			old_mac0 = 0;
 			old_mac1 = 0;
+			reset_jav_timer(50 * 1000);
 			continue;
 		}
 
@@ -274,6 +292,11 @@ static void cleanup(void) {
 		LOG("JAVEventFlag deleted\n");
 	}
 
+	if (jav_timer >= 0) {
+		sceKernelDeleteTimer(jav_timer);
+		LOG("JAVTimer deleted\n");
+	}
+
 	if (javk_id >= 0) {
 		taiStopUnloadKernelModule(javk_id, 0, NULL, 0, NULL, NULL);
 		LOG("JAVKernel stopped and unloaded\n");
@@ -320,6 +343,13 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 		NULL);
 	GLZ(jav_evf);
 	LOG("JAVEventFlag created\n");
+
+	// create timer
+	jav_timer = sceKernelCreateTimer("JavTimer",
+		SCE_KERNEL_ATTR_TH_FIFO | SCE_KERNEL_EVENT_ATTR_AUTO_RESET | SCE_KERNEL_ATTR_NOTIFY_CB_WAKEUP_ONLY,
+		NULL);
+	GLZ(jav_timer);
+	LOG("JAVTimer created\n");
 
 	// get module info
 	tai_module_info_t mod_info;
