@@ -114,7 +114,7 @@ static void SceShellMain_run(void) {
 	sceKernelSetEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_RUN);
 }
 
-static int SceShellMain_wait(int device, int mac0, int mac1, int muted) {
+static int SceShellMain_wait(jav_config_t *config, int device, int mac0, int mac1) {
 	sceKernelClearEventFlag(jav_evf, ~JAV_EVF_SCESHELLMAIN_RUN);
 	sceKernelWaitEventFlag(jav_evf,
 		JAV_EVF_SCESHELLMAIN_WAITING,
@@ -124,11 +124,11 @@ static int SceShellMain_wait(int device, int mac0, int mac1, int muted) {
 
 	int mac0_, mac1_;
 	if (get_device(&mac0_, &mac1_) == device && mac0_ == mac0 && mac1_ == mac1) {
-		int new_vol = load_config(device, mac0, mac1);
-		if (new_vol >= 0 && set_mute_icon(device, muted) == 0) {
+		int new_vol = load_config(config, device, mac0, mac1);
+		if (new_vol >= 0 && set_mute_icon(device, config->muted) == 0) {
 			// keep SceShell state consistent to prevent extra mute bar
 			// from displaying and wrong volume from being set
-			audio_info->muted = muted;
+			audio_info->muted = config->muted;
 			audio_info->volume = new_vol;
 			return new_vol;
 		}
@@ -137,14 +137,14 @@ static int SceShellMain_wait(int device, int mac0, int mac1, int muted) {
 	return -1;
 }
 
-static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int old_vol) {
+static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, int old_vol) {
 	sceKernelLockLwMutex(&top_func_mtx, 1, NULL);
-	int new_vol = SceShellMain_wait(device, mac0, mac1, muted);
+	int new_vol = SceShellMain_wait(config, device, mac0, mac1);
 
 	if (new_vol >= 0) {
 		init_vol_bar(&audio_info->vol_bar, VOL_BAR_INIT_MODE_INIT);
-		if (muted && device != BLUETOOTH) {
-			set_vol_bar_muted(&audio_info->vol_bar, avls);
+		if (config->muted && device != BLUETOOTH) {
+			set_vol_bar_muted(&audio_info->vol_bar, config->avls);
 			SceShellMain_run();
 
 			// need to try many times to ensure mute
@@ -153,7 +153,7 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 				mute_on();
 			}
 		} else {
-			int flags = (avls ? VOL_BAR_FLAG_AVLS : 0) | (muted ? VOL_BAR_FLAG_MUTED : 0);
+			int flags = (config->avls ? VOL_BAR_FLAG_AVLS : 0) | (config->muted ? VOL_BAR_FLAG_MUTED : 0);
 			if (device == BLUETOOTH) {
 				flags = (flags & ~VOL_BAR_FLAG_AVLS) | VOL_BAR_FLAG_BT;
 			}
@@ -172,9 +172,10 @@ static int switch_audio(int device, int mac0, int mac1, int avls, int muted, int
 
 static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 	while (!audio_info) { sceKernelDelayThread(50 * 1000); }
-	if (read_config() < 0) { reset_config(); }
 
 	// config is written to file after 3 seconds of no change
+	jav_config_t config;
+	if (read_config(&config) < 0) { reset_config(&config); }
 	jav_config_t old_config;
 	sceClibMemcpy(&old_config, &config, sizeof(old_config));
 	SceInt64 config_changed = sceKernelGetSystemTimeWide();
@@ -197,7 +198,7 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 				// this is default behaviour
 				if (old_device == BLUETOOTH && device != BLUETOOTH) { config.muted = 1; }
 
-				int new_vol = switch_audio(device, mac0, mac1, config.avls, config.muted, old_vol);
+				int new_vol = switch_audio(&config, device, mac0, mac1, old_vol);
 				if (new_vol >= 0) {
 					old_device = device;
 					old_mac0 = mac0;
@@ -214,12 +215,12 @@ static int jav(SceSize argc, void *argv) { (void)argc; (void)argv;
 		}
 
 		// persist config
-		int new_vol = save_config(device, mac0, mac1);
+		int new_vol = save_config(&config, device, mac0, mac1);
 		if (sceClibMemcmp(&old_config, &config, sizeof(old_config)) != 0) {
 			sceClibMemcpy(&old_config, &config, sizeof(old_config));
 			config_changed = sceKernelGetSystemTimeWide();
 		} else if (sceKernelGetSystemTimeWide() - config_changed >= 3 * 1000 * 1000) {
-			write_config();
+			write_config(&config);
 		}
 
 		if (new_vol >= 0) { old_vol = new_vol; }
