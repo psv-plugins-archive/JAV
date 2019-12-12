@@ -57,6 +57,7 @@ target_link_libraries("${U_NAME}"
   SceAVConfig_stub
   SceBt_stub
   SceIofilemgr_stub
+  SceKernelModulemgr_stub
   SceKernelThreadMgr_stub
   SceLibKernel_stub
   ScePafToplevel_stub_weak

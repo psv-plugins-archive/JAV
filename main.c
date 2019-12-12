@@ -50,18 +50,23 @@ static SceUID jav_evf = -1;
 #define JAV_EVF_SCESHELLMAIN_RUN     0x10
 #define JAV_EVF_SCESHELLMAIN_WAITING 0x20
 
-#define N_HOOKS 5
-static SceUID hook_id[N_HOOKS];
-static tai_hook_ref_t hook_ref[N_HOOKS];
+#define N_OFFSET_FUNC 4
+static int (*init_vol_bar)(volume_bar_t *v, int mode);
+static int (*set_vol_bar_lvl)(volume_bar_t *v, int level, int flags);
+static int (*set_vol_bar_muted)(volume_bar_t *v, int avls);
+static int (*free_vol_bar)(volume_bar_t *v);
+
+static SceUID top_func_hook_id;
+static tai_hook_ref_t top_func_hook_ref;
 
 static audio_info_t *audio_info = NULL;
 static SceUID thread_id = -1;
 
-static int top_func(audio_info_t *a, button_info_t *p) {
+static int top_func_hook(audio_info_t *a, button_info_t *p) {
 	if (!audio_info) { audio_info = a; }
 
 	if (sceKernelTryLockLwMutex(&top_func_mtx, 1) == 0) {
-		int ret = TAI_CONTINUE(int, hook_ref[0], a, p);
+		int ret = TAI_CONTINUE(int, top_func_hook_ref, a, p);
 		sceKernelUnlockLwMutex(&top_func_mtx, 1);
 		return ret;
 	}
@@ -71,22 +76,6 @@ static int top_func(audio_info_t *a, button_info_t *p) {
 		sceKernelWaitEventFlag(jav_evf, JAV_EVF_SCESHELLMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL, NULL);
 	}
 	return 0;
-}
-
-static int init_vol_bar(volume_bar_t *v, int mode) {
-	return TAI_CONTINUE(int, hook_ref[1], v, mode);
-}
-
-static int set_vol_bar_lvl(volume_bar_t *v, int level, int flags) {
-	return TAI_CONTINUE(int, hook_ref[2], v, level, flags);
-}
-
-static int set_vol_bar_muted(volume_bar_t *v, int avls) {
-	return TAI_CONTINUE(int, hook_ref[3], v, avls);
-}
-
-static int free_vol_bar(volume_bar_t *v) {
-	return TAI_CONTINUE(int, hook_ref[4], v);
 }
 
 static void progress_vol_bar(int start, int end, int flag) {
@@ -246,11 +235,9 @@ static void cleanup(void) {
 		LOG("JAVMain stopped and deleted\n");
 	}
 
-	for (int i = 0; i < N_HOOKS; i++) {
-		if (hook_id[i] >= 0) {
-			taiHookRelease(hook_id[i], hook_ref[i]);
-			LOG("hook %d released\n", i);
-		}
+	if (top_func_hook_id >= 0) {
+		taiHookRelease(top_func_hook_id, top_func_hook_ref);
+		LOG("top_func_hook released\n", top_func_hook_id);
 	}
 
 	sceKernelDeleteLwMutex(&top_func_mtx);
@@ -312,15 +299,20 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	tai_module_info_t mod_info;
 	mod_info.size = sizeof(mod_info);
 	GLZ(taiGetModuleInfo("SceShell", &mod_info));
+	SceKernelModuleInfo sce_mod_info;
+	sce_mod_info.size = sizeof(sce_mod_info);
+	GLZ(sceKernelGetModuleInfo(mod_info.modid, &sce_mod_info));
 	LOG("SceShell module info acquired\n");
 
 	// determine offsets
-	int offset[N_HOOKS];
+	int offset_func_offset[N_OFFSET_FUNC];
+	int top_func_offset;
 	switch (mod_info.module_nid) {
 		case 0x0552F692: // 3.60 retail
 			LOG("firmware 3.60 retail\n");
-			offset[0] = 0x145422; offset[1] = 0x145C86; offset[2] = 0x146374;
-			offset[3] = 0x147054; offset[4] = 0x145C5C;
+			offset_func_offset[0] = 0x145C86; offset_func_offset[1] = 0x146374;
+			offset_func_offset[2] = 0x147054; offset_func_offset[3] = 0x145C5C;
+			top_func_offset = 0x145422;
 			break;
 		case 0x5549BF1F: // 3.65 retail
 		case 0x34B4D82E: // 3.67 retail
@@ -331,21 +323,30 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 		case 0x939FFBE9: // 3.72 retail
 		case 0x734D476A: // 3.73 retail
 			LOG("firmware 3.65-3.73 retail\n");
-			offset[0] = 0x14547A; offset[1] = 0x145CDE; offset[2] = 0x1463CC;
-			offset[3] = 0x1470AC; offset[4] = 0x145CB4;
+			offset_func_offset[0] = 0x145CDE; offset_func_offset[1] = 0x1463CC;
+			offset_func_offset[2] = 0x1470AC; offset_func_offset[3] = 0x145CB4;
+			top_func_offset = 0x14547A;
 			break;
 		default:
 			LOG("firmware unsupported\n");
 			goto fail;
 	}
 
-	// setup hooks
-	void *hook[N_HOOKS] = {top_func, init_vol_bar, set_vol_bar_lvl, set_vol_bar_muted, free_vol_bar};
-	for (int i = 0; i < N_HOOKS; i++) {
-		hook_id[i] = taiHookFunctionOffset(hook_ref+i, mod_info.modid, 0, offset[i], 1, hook[i]);
-		GLZ(hook_id[i]);
-		LOG("hook %d: %08X\n", i, hook_id[i]);
+	// setup offset funcs
+	int *offset_func[N_OFFSET_FUNC] = {
+		(int*)&init_vol_bar,
+		(int*)&set_vol_bar_lvl,
+		(int*)&set_vol_bar_muted,
+		(int*)&free_vol_bar};
+	for (int i = 0; i < N_OFFSET_FUNC; i++) {
+		*offset_func[i] = ((int)sce_mod_info.segments[0].vaddr + offset_func_offset[i]) | 1;
+		LOG("Offset function %d: %08X\n", i, *(offset_func[i]));
 	}
+
+	// setup hooks
+	top_func_hook_id = taiHookFunctionOffset(&top_func_hook_ref, mod_info.modid, 0, top_func_offset, 1, top_func_hook);
+	GLZ(top_func_hook_id);
+	LOG("top_func_hook_id: %08X\n", top_func_hook_id);
 
 	// start thread (same priority as SceShellMain)
 	thread_id = sceKernelCreateThread("JAVMain", jav, 0x4C, 0x3000, 0, 0, NULL);
