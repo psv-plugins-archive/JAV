@@ -23,14 +23,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // taihenModuleUtils_stub
 extern int module_get_offset(SceUID pid, SceUID modid, int segidx, size_t offset, uintptr_t *addr);
 
-static SceUID hook_id;
-static tai_hook_ref_t hook_ref;
+#define N_HOOK 1
+static SceUID hook_id[N_HOOK];
+static tai_hook_ref_t hook_ref[N_HOOK];
+
+#define N_INJECT 2
+static SceUID inject_id[N_INJECT];
 
 static int *avconfig_intr_mtx;
 static int *avconfig_bt_vol;
 
 static int sceBtAvrcpSendVolume_hook(int mac0, int mac1, int vol) {
-	int ret = TAI_CONTINUE(int, hook_ref, mac0, mac1, vol);
+	int ret = TAI_CONTINUE(int, hook_ref[0], mac0, mac1, vol);
 	if (ret >= 0) {
 		int syscall_state, intr_state;
 		ENTER_SYSCALL(syscall_state);
@@ -43,7 +47,13 @@ static int sceBtAvrcpSendVolume_hook(int mac0, int mac1, int vol) {
 }
 
 static void cleanup(void) {
-	if (hook_id >= 0) { taiHookReleaseForKernel(hook_id, hook_ref); }
+	for (int i = 0; i < N_HOOK; i++) {
+		if (hook_id[i] >= 0) { taiHookReleaseForKernel(hook_id[i], hook_ref[i]); }
+	}
+
+	for (int i = 0; i < N_INJECT; i++) {
+		if (inject_id[i] >= 0) { taiInjectReleaseForKernel(inject_id[i]); }
+	}
 }
 
 int _start() __attribute__ ((weak, alias("module_start")));
@@ -55,8 +65,18 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x2AC, (uintptr_t*)&avconfig_intr_mtx));
 	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x278, (uintptr_t*)&avconfig_bt_vol));
 
-	hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &hook_ref, "SceBt", 0x9785DB68, 0xC5C7003B, sceBtAvrcpSendVolume_hook);
-	GLZ(hook_id);
+	hook_id[0] = taiHookFunctionExportForKernel(KERNEL_PID, hook_ref+0, "SceBt", 0x9785DB68, 0xC5C7003B, sceBtAvrcpSendVolume_hook);
+	GLZ(hook_id[0]);
+
+	// disable auto mute (jav will manage it)
+
+	// when bluetooth device disconnects
+	inject_id[0] = taiInjectDataForKernel(KERNEL_PID, mod_info.modid, 0, 0xF70, "\x00\xBF\x00\xBF", 4); // nop nop
+	GLZ(inject_id[0]);
+
+	// when speaker_mute is on and headphone is unplugged
+	inject_id[1] = taiInjectDataForKernel(KERNEL_PID, mod_info.modid, 0, 0xF88, "\xFF\xF7\xF6\xBC", 4); // b.w -1552
+	GLZ(inject_id[1]);
 
 	// disable forced AVLS
 	int *avconfig_force_avls;

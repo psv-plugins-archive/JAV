@@ -209,9 +209,7 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 		if (old_device != device || old_mac0 != mac0 || old_mac1 != mac1) {
 			int speaker_mute = get_speaker_mute();
 			if (speaker_mute >= 0) {
-				if (old_device == HEADPHONE && device == SPEAKER && speaker_mute) { config.muted = 1; }
-				// this is default behaviour
-				if (old_device == BLUETOOTH && device != BLUETOOTH) { config.muted = 1; }
+				if (old_device != -1 && device == SPEAKER && speaker_mute) { config.muted = 1; }
 
 				int new_vol = switch_audio(&config, device, mac0, mac1, audio_info, old_vol);
 				if (new_vol >= 0) {
