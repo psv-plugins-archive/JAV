@@ -58,6 +58,11 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &hook_ref, "SceBt", 0x9785DB68, 0xC5C7003B, sceBtAvrcpSendVolume_hook);
 	GLZ(hook_id);
 
+	// disable forced AVLS
+	int *avconfig_force_avls;
+	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x114, (uintptr_t*)&avconfig_force_avls));
+	*avconfig_force_avls = 0;
+
 	return SCE_KERNEL_START_SUCCESS;
 
 fail:

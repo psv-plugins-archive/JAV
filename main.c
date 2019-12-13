@@ -201,7 +201,6 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 
 	while (sceKernelPollEventFlag(jav_evf, JAV_EVF_JAVMAIN_RUN, SCE_KERNEL_EVF_WAITMODE_OR, NULL) == 0) {
 		wait_jav_timer();
-		disable_avls_timer();
 
 		int mac0, mac1;
 		int device = get_device(&mac0, &mac1);
