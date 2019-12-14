@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // ＲＩＫＫＡ　ＰＲＯＪＥＣＴ
 // Plugin idea: nkekev
-// Testing: dots-tb, nkekev, ATTLAS
+// Testing: dots-tb, nkekev, ATTLAS, froid_san, yoti
 // Marketing: dots-tb
 // Product manager: dots-tb
 // Funded by: CBPS

@@ -1,14 +1,11 @@
 # 自動オーディオボリューム
 
-Automatically switch between your preferred speaker and headphone volumes.
+[**Download**](https://github.com/cuevavirus/jav/releases)
+
+Automatically switch between your last used speaker and headphone volumes.
 
 ![demo.gif](https://github.com/cuevavirus/jav/raw/assets/demo.gif)
-
-## Usage
-
-- Plug in your headphones, and the volume automatically changes to the volume you last used for your headphones. The opposite happens when you unplug. This works even if they were plugged in or unplugged while the Vita is powered off or suspended.
-- If your Vita is muted, the volume changes but remains muted. Press the volume buttons to unmute.
-- AVLS functions normally. For European region Vitas, AVLS does not turn back on by itself.
+![bt_demo.gif](https://github.com/cuevavirus/jav/raw/assets/bt_demo.gif)
 
 ## Installation
 
@@ -21,12 +18,18 @@ Download the latest version from [releases](https://github.com/cuevavirus/jav/re
 ur0:tai/jav.suprx
 ```
 
-This plugin supercedes NoAVLS so noavls.skprx can be removed from under `*KERNEL`.
+## Usage
+
+- When the audio output device is changed, the volume level automatically switches to the last used volume for that device.
+- Bluetooth audio devices have volume levels saved per device, for up to 32 devices.
+- When a Bluetooth audio device is disconnected, automatic mute follows your setting.
+- If your Vita is muted, the volume changes but remains muted. Press the volume buttons to unmute.
+- For Europe region Vitas, AVLS does not turn on automatically at boot or after 20 hours of playback.
 
 ## Credits
 
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)
-- Testing: dots-tb, nkekev, [ATTLAS](https://twitter.com/ATTLAS_)
+- Testing: dots-tb, nkekev, [ATTLAS](https://twitter.com/ATTLAS_), [froid_san](https://froidromhacks.org), [yoti](https://twitter.com/realyoti)
 - Marketing: dots-tb
 - Product manager: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA)
-- Funded by: CBPS ([discord](https://discord.gg/2nDCbxJ))
+- Funded by: CBPS ([forum](https://forum.devchroma.nl/index.php), [discord](https://discord.gg/2nDCbxJ))
