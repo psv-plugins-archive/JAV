@@ -1,5 +1,5 @@
 /*
-自動オーディオボリューム - main.c
+自動オーディオボリューム
 Copyright (C) 2019-2020 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
@@ -15,12 +15,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// ＲＩＫＫＡ　ＰＲＯＪＥＣＴ
+// 六花ＰＲＯＪＥＣＴ
 // Plugin idea: nkekev
 // Testing: dots-tb, nkekev, ATTLAS, froid_san, yoti
 // Marketing: dots-tb
 // Product manager: dots-tb
-// Funded by: CBPS
+// Author: 浅倉麗子
 
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>

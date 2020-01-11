@@ -1,5 +1,5 @@
 /*
-自動オーディオボリューム - main_kernel.c
+自動オーディオボリューム
 Copyright (C) 2019 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
