@@ -1,6 +1,6 @@
 /*
 自動オーディオボリューム - config.c
-Copyright (C) 2019 浅倉麗子
+Copyright (C) 2019-2020 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ void reset_config(jav_config_t *config) {
 }
 
 int read_config(jav_config_t *config) {
-	SceUID fd = sceIoOpen(CONFIG_PATH, SCE_O_RDONLY, 0777);
+	SceUID fd = sceIoOpen(CONFIG_PATH, SCE_O_RDONLY, 0);
 	if (fd < 0) { goto fail; }
 
 	int ret = sceIoRead(fd, &file_config, sizeof(file_config));

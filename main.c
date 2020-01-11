@@ -1,6 +1,6 @@
 /*
 自動オーディオボリューム - main.c
-Copyright (C) 2019 浅倉麗子
+Copyright (C) 2019-2020 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -249,7 +249,6 @@ static int jav_thread_launcher(audio_info_t *a, button_info_t *p) {
 	// rehook top_func
 	GLZ(taiHookRelease(top_func_hook_id, top_func_hook_ref));
 	GLZ(HOOK_TOP_FUNC(top_func_hook));
-	GLZ(top_func_hook_id);
 	LOG("top_func rehooked\n");
 
 	// launch jav thread
