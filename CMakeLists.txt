@@ -8,52 +8,31 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-project(jav)
+project(jav LANGUAGES C)
 include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib -Wall -Wextra -O3 -std=c99")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
 
-link_directories("${CMAKE_BINARY_DIR}/ScePafToplevel_stubs")
+add_subdirectory(kernel_module)
+add_subdirectory(libpaf)
 
-# kernel plugin
+set(ELF  "${PROJECT_NAME}.elf")
+set(SELF "${PROJECT_NAME}.suprx")
 
-set(K_NAME "${PROJECT_NAME}_kernel")
-set(K_SELF "${K_NAME}.skprx")
-
-add_executable("${K_NAME}"
-  main_kernel.c
-)
-
-target_compile_options("${K_NAME}" PRIVATE -std=gnu99)
-
-target_link_libraries("${K_NAME}"
-  SceCpuForDriver_stub
-  taihenForKernel_stub
-  taihenModuleUtils_stub
-)
-
-vita_create_self("${K_SELF}" "${K_NAME}" CONFIG exports_kernel.yml UNSAFE)
-
-# user plugin
-
-set(U_NAME "${PROJECT_NAME}")
-set(U_SELF "${U_NAME}.suprx")
-
-add_executable("${U_NAME}"
+add_executable("${ELF}"
   main.c
   audio.c
   config.c
-  "${K_SELF}.c"
 )
 
-add_custom_command(OUTPUT "${K_SELF}.c"
-  COMMAND xxd -i "${K_SELF}" "${K_SELF}.c"
-  DEPENDS "${K_SELF}"
-  COMMENT "Converting ${K_SELF} to ${K_SELF}.c"
+target_include_directories("${ELF}"
+  PRIVATE common
+  PRIVATE sce
 )
 
-target_link_libraries("${U_NAME}"
+target_link_libraries("${ELF}"
+  gcc
   SceAVConfig_stub
   SceBt_stub
   SceIofilemgr_stub
@@ -63,19 +42,12 @@ target_link_libraries("${U_NAME}"
   ScePafToplevel_stub_weak
   SceRegistryMgr_stub
   SceSysmodule_stub
-  gcc
   taihen_stub
+  jav_kernel
 )
 
-add_custom_target(ScePafToplevel_stub_weak
-  DEPENDS ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
+vita_create_self("${SELF}"
+  "${ELF}"
+  CONFIG exports.yml
+  UNSAFE
 )
-
-add_custom_command(OUTPUT ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
-  COMMAND vita-libs-gen "${CMAKE_SOURCE_DIR}/ScePafToplevel.yml" ScePafToplevel_stubs
-  COMMAND make -C ScePafToplevel_stubs
-  COMMAND mv ScePafToplevel_stubs/libScePaf_stub_weak.a ScePafToplevel_stubs/libScePafToplevel_stub_weak.a
-  COMMENT "Building ScePafToplevel stubs"
-)
-
-vita_create_self("${U_SELF}" "${U_NAME}" CONFIG exports.yml UNSAFE)
