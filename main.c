@@ -50,7 +50,7 @@ static SceUID jav_evf = -1;
 #define JAV_EVF_SCESHELLMAIN_RUN     0x10
 #define JAV_EVF_SCESHELLMAIN_WAITING 0x20
 
-#define N_OFFSET_FUNC 4
+#define N_VOL_BAR_FUNC 4
 static int (*init_vol_bar)(volume_bar_t *v, int mode);
 static int (*set_vol_bar_lvl)(volume_bar_t *v, int level, int flags);
 static int (*set_vol_bar_muted)(volume_bar_t *v, int avls);
@@ -358,15 +358,13 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	SceKernelModuleInfo sce_mod_info;
 	sce_mod_info.size = sizeof(sce_mod_info);
 	GLZ(sceKernelGetModuleInfo(SceShell_id, &sce_mod_info));
+	int seg0 = (int)sce_mod_info.segments[0].vaddr;
 	LOG("SceShell module info acquired\n");
 
 	// determine offsets
-	int offset_func_offset[N_OFFSET_FUNC];
 	switch (mod_info.module_nid) {
 		case 0x0552F692: // 3.60 retail
 			LOG("firmware 3.60 retail\n");
-			offset_func_offset[0] = 0x145C86; offset_func_offset[1] = 0x146374;
-			offset_func_offset[2] = 0x147054; offset_func_offset[3] = 0x145C5C;
 			proc_vol_ofs = 0x145422;
 			break;
 		case 0x5549BF1F: // 3.65 retail
@@ -378,8 +376,6 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 		case 0x939FFBE9: // 3.72 retail
 		case 0x734D476A: // 3.73 retail
 			LOG("firmware 3.65-3.73 retail\n");
-			offset_func_offset[0] = 0x145CDE; offset_func_offset[1] = 0x1463CC;
-			offset_func_offset[2] = 0x1470AC; offset_func_offset[3] = 0x145CB4;
 			proc_vol_ofs = 0x14547A;
 			break;
 		default:
@@ -387,15 +383,19 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 			goto fail;
 	}
 
-	// setup offset funcs
-	int *offset_func[N_OFFSET_FUNC] = {
+	// setup volume bar funcs
+	int call_ofs[N_VOL_BAR_FUNC] = {0xAE, 0x2D4, 0xB6, 0x3E8};
+	int *vol_bar_func[N_VOL_BAR_FUNC] = {
 		(int*)&init_vol_bar,
 		(int*)&set_vol_bar_lvl,
 		(int*)&set_vol_bar_muted,
 		(int*)&free_vol_bar};
-	for (int i = 0; i < N_OFFSET_FUNC; i++) {
-		*offset_func[i] = ((int)sce_mod_info.segments[0].vaddr + offset_func_offset[i]) | 1;
-		LOG("Offset function %d: %08X\n", i, *(offset_func[i]));
+	for (int i = 0; i < N_VOL_BAR_FUNC; i++) {
+		int call_addr = seg0 + proc_vol_ofs + call_ofs[i];
+		GLZ(decode_bl_t1(*(int*)call_addr, vol_bar_func[i]));
+		*vol_bar_func[i] += call_addr + 4;
+		*vol_bar_func[i] |= 1;
+		LOG("Volume bar function %d: %08X\n", i, *vol_bar_func[i]);
 	}
 
 	// setup hooks

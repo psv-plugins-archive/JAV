@@ -24,6 +24,7 @@ add_executable("${ELF}"
   main.c
   audio.c
   config.c
+  common/util.c
 )
 
 target_include_directories("${ELF}"

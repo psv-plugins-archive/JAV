@@ -29,4 +29,6 @@
 	if ((x) < 0) { goto fail; }\
 } while(0)
 
+int decode_bl_t1(int bl, int *imm);
+
 #endif
