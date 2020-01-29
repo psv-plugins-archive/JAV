@@ -43,7 +43,7 @@ extern char jav_kernel_skprx[];
 extern int jav_kernel_skprx_len;
 static SceUID javk_id = -1;
 
-static SceKernelLwMutexWork top_func_mtx __attribute__ ((aligned (8)));
+static SceKernelLwMutexWork proc_vol_mtx __attribute__ ((aligned (8)));
 
 static SceUID jav_evf = -1;
 #define JAV_EVF_JAVMAIN_RUN          0x01
@@ -57,10 +57,12 @@ static int (*set_vol_bar_muted)(volume_bar_t *v, int avls);
 static int (*free_vol_bar)(volume_bar_t *v);
 
 static SceUID         SceShell_id = -1;
-static int            top_func_offset = -1;
-static SceUID         top_func_hook_id = -1;
-static tai_hook_ref_t top_func_hook_ref = -1;
-#define HOOK_TOP_FUNC(x) (top_func_hook_id = taiHookFunctionOffset(&top_func_hook_ref, SceShell_id, 0, top_func_offset, 1, (x)))
+static int            proc_vol_ofs = -1;
+static SceUID         proc_vol_hook_id = -1;
+static tai_hook_ref_t proc_vol_hook_ref = -1;
+#define HOOK_PROC_VOL(x)\
+	(proc_vol_hook_id = taiHookFunctionOffset(\
+		&proc_vol_hook_ref, SceShell_id, 0, proc_vol_ofs, 1, (void*)(x)))
 
 static SceUID thread_id = -1;
 static SceUID jav_timer = -1;
@@ -77,10 +79,10 @@ static void wait_jav_timer(void) {
 	sceKernelWaitEvent(jav_timer, SCE_KERNEL_EVENT_TIMER, NULL, NULL, NULL);
 }
 
-static int top_func_hook(audio_info_t *a, button_info_t *p) {
-	if (sceKernelTryLockLwMutex(&top_func_mtx, 1) == 0) {
-		int ret = TAI_CONTINUE(int, top_func_hook_ref, a, p);
-		sceKernelUnlockLwMutex(&top_func_mtx, 1);
+static int process_volume_hook(audio_info_t *a, button_info_t *p) {
+	if (sceKernelTryLockLwMutex(&proc_vol_mtx, 1) == 0) {
+		int ret = TAI_CONTINUE(int, proc_vol_hook_ref, a, p);
+		sceKernelUnlockLwMutex(&proc_vol_mtx, 1);
 		return ret;
 	}
 
@@ -152,7 +154,7 @@ static int SceShellMain_wait(jav_config_t *config, int device, int mac0, int mac
 }
 
 static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, audio_info_t *audio_info, int old_vol) {
-	sceKernelLockLwMutex(&top_func_mtx, 1, NULL);
+	sceKernelLockLwMutex(&proc_vol_mtx, 1, NULL);
 	int new_vol = SceShellMain_wait(config, device, mac0, mac1, audio_info);
 
 	if (new_vol >= 0) {
@@ -182,7 +184,7 @@ static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, au
 		free_vol_bar(&audio_info->vol_bar);
 	}
 
-	sceKernelUnlockLwMutex(&top_func_mtx, 1);
+	sceKernelUnlockLwMutex(&proc_vol_mtx, 1);
 	return new_vol;
 }
 
@@ -244,12 +246,12 @@ static int jav(SceSize argc, void *argv) { (void)argc;
 }
 
 static int jav_thread_launcher(audio_info_t *a, button_info_t *p) {
-	int ret = TAI_CONTINUE(int, top_func_hook_ref, a, p);
+	int ret = TAI_CONTINUE(int, proc_vol_hook_ref, a, p);
 
-	// rehook top_func
-	GLZ(taiHookRelease(top_func_hook_id, top_func_hook_ref));
-	GLZ(HOOK_TOP_FUNC(top_func_hook));
-	LOG("top_func rehooked\n");
+	// rehook process_volume
+	GLZ(taiHookRelease(proc_vol_hook_id, proc_vol_hook_ref));
+	GLZ(HOOK_PROC_VOL(process_volume_hook));
+	LOG("process_volume rehooked\n");
 
 	// launch jav thread
 	thread_id = sceKernelCreateThread("JAVMain", jav,
@@ -275,13 +277,13 @@ static void cleanup(void) {
 		LOG("JAVMain stopped and deleted\n");
 	}
 
-	if (top_func_hook_id >= 0) {
-		taiHookRelease(top_func_hook_id, top_func_hook_ref);
-		LOG("top_func_hook released\n", top_func_hook_id);
+	if (proc_vol_hook_id >= 0) {
+		taiHookRelease(proc_vol_hook_id, proc_vol_hook_ref);
+		LOG("process_volume_hook released\n", proc_vol_hook_id);
 	}
 
-	sceKernelDeleteLwMutex(&top_func_mtx);
-	LOG("JAVTopFuncMtx deleted\n");
+	sceKernelDeleteLwMutex(&proc_vol_mtx);
+	LOG("JAVProcessVolumeMutex deleted\n");
 
 	if (jav_evf >= 0) {
 		sceKernelDeleteEventFlag(jav_evf);
@@ -329,8 +331,8 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	LOG("JAVKernel loaded and started\n");
 
 	// create mutex
-	GLZ(sceKernelCreateLwMutex(&top_func_mtx, "JAVTopFuncMtx", SCE_KERNEL_MUTEX_ATTR_TH_FIFO, 0, NULL));
-	LOG("JAVTopFuncMtx created\n");
+	GLZ(sceKernelCreateLwMutex(&proc_vol_mtx, "JAVProcessVolumeMutex", SCE_KERNEL_MUTEX_ATTR_TH_FIFO, 0, NULL));
+	LOG("JAVProcessVolumeMutex created\n");
 
 	// create event flag
 	jav_evf = sceKernelCreateEventFlag("JAVEventFlag",
@@ -365,7 +367,7 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 			LOG("firmware 3.60 retail\n");
 			offset_func_offset[0] = 0x145C86; offset_func_offset[1] = 0x146374;
 			offset_func_offset[2] = 0x147054; offset_func_offset[3] = 0x145C5C;
-			top_func_offset = 0x145422;
+			proc_vol_ofs = 0x145422;
 			break;
 		case 0x5549BF1F: // 3.65 retail
 		case 0x34B4D82E: // 3.67 retail
@@ -378,7 +380,7 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 			LOG("firmware 3.65-3.73 retail\n");
 			offset_func_offset[0] = 0x145CDE; offset_func_offset[1] = 0x1463CC;
 			offset_func_offset[2] = 0x1470AC; offset_func_offset[3] = 0x145CB4;
-			top_func_offset = 0x14547A;
+			proc_vol_ofs = 0x14547A;
 			break;
 		default:
 			LOG("firmware unsupported\n");
@@ -397,8 +399,8 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	}
 
 	// setup hooks
-	GLZ(HOOK_TOP_FUNC(jav_thread_launcher));
-	LOG("top_func_hook_id: %08X\n", top_func_hook_id);
+	GLZ(HOOK_PROC_VOL(jav_thread_launcher));
+	LOG("proc_vol_hook_id: %08X\n", proc_vol_hook_id);
 
 	LOG("JAV start success\n");
 	return SCE_KERNEL_START_SUCCESS;
