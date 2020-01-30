@@ -364,9 +364,11 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	// determine offsets
 	switch (mod_info.module_nid) {
 		case 0x0552F692: // 3.60 retail
-			LOG("firmware 3.60 retail\n");
+		case 0x532155E5: // 3.61 retail
+			LOG("firmware 3.60-3.61 retail\n");
 			proc_vol_ofs = 0x145422;
 			break;
+		case 0xBB4B0A3E: // 3.63 retail
 		case 0x5549BF1F: // 3.65 retail
 		case 0x34B4D82E: // 3.67 retail
 		case 0x12DAC0F3: // 3.68 retail
@@ -375,8 +377,12 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 		case 0xF476E785: // 3.71 retail
 		case 0x939FFBE9: // 3.72 retail
 		case 0x734D476A: // 3.73 retail
-			LOG("firmware 3.65-3.73 retail\n");
+			LOG("firmware 3.63-3.73 retail\n");
 			proc_vol_ofs = 0x14547A;
+			break;
+		case 0x587F9CED: // 3.65 testkit
+			LOG("firmware 3.65 testkit\n");
+			proc_vol_ofs = 0x13D8AE;
 			break;
 		default:
 			LOG("firmware unsupported\n");
