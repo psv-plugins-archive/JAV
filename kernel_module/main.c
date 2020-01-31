@@ -1,6 +1,6 @@
 /*
 自動オーディオボリューム
-Copyright (C) 2019 浅倉麗子
+Copyright (C) 2019-2020 浅倉麗子
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,8 +20,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <taihen.h>
 #include "util.h"
 
-// taihenModuleUtils_stub
 extern int module_get_offset(SceUID pid, SceUID modid, int segidx, size_t offset, uintptr_t *addr);
+#define GET_OFFSET(modid, seg, ofs, addr)\
+	module_get_offset(KERNEL_PID, modid, seg, ofs, (uintptr_t*)addr)
+
+#define HOOK_EXPORT(idx, mod, libnid, funcnid, func)\
+	(hook_id[idx] = taiHookFunctionExportForKernel(\
+		KERNEL_PID, hook_ref+idx, mod, libnid, funcnid, func##_hook))
+
+#define INJECT_DATA(idx, modid, seg, ofs, src, size)\
+	(inject_id[idx] = taiInjectDataForKernel(\
+		KERNEL_PID, modid, seg, ofs, src, size))
 
 #define N_HOOK 1
 static SceUID hook_id[N_HOOK];
@@ -62,25 +71,23 @@ int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
 	mod_info.size = sizeof(tai_module_info_t);
 
 	GLZ(taiGetModuleInfoForKernel(KERNEL_PID, "SceAVConfig", &mod_info));
-	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x2AC, (uintptr_t*)&avconfig_intr_mtx));
-	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x278, (uintptr_t*)&avconfig_bt_vol));
+	SceUID mid = mod_info.modid;
+	GLZ(GET_OFFSET(mid, 1, 0x2AC, &avconfig_intr_mtx));
+	GLZ(GET_OFFSET(mid, 1, 0x278, &avconfig_bt_vol));
 
-	hook_id[0] = taiHookFunctionExportForKernel(KERNEL_PID, hook_ref+0, "SceBt", 0x9785DB68, 0xC5C7003B, sceBtAvrcpSendVolume_hook);
-	GLZ(hook_id[0]);
+	GLZ(HOOK_EXPORT(0, "SceBt", 0x9785DB68, 0xC5C7003B, sceBtAvrcpSendVolume));
 
 	// disable auto mute (jav will manage it)
 
-	// when bluetooth device disconnects
-	inject_id[0] = taiInjectDataForKernel(KERNEL_PID, mod_info.modid, 0, 0xF70, "\x00\xBF\x00\xBF", 4); // nop nop
-	GLZ(inject_id[0]);
+	// when bluetooth device disconnects (nop nop)
+	GLZ(INJECT_DATA(0, mid, 0, 0xF70, "\x00\xBF\x00\xBF", 4));
 
-	// when speaker_mute is on and headphone is unplugged
-	inject_id[1] = taiInjectDataForKernel(KERNEL_PID, mod_info.modid, 0, 0xF88, "\xFF\xF7\xF6\xBC", 4); // b.w -1552
-	GLZ(inject_id[1]);
+	// when speaker_mute is on and headphone is unplugged (b.w #-1552)
+	GLZ(INJECT_DATA(1, mid, 0, 0xF88, "\xFF\xF7\xF6\xBC", 4));
 
 	// disable forced AVLS
 	int *avconfig_force_avls;
-	GLZ(module_get_offset(KERNEL_PID, mod_info.modid, 1, 0x114, (uintptr_t*)&avconfig_force_avls));
+	GLZ(GET_OFFSET(mid, 1, 0x114, &avconfig_force_avls));
 	*avconfig_force_avls = 0;
 
 	return SCE_KERNEL_START_SUCCESS;
