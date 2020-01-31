@@ -2,14 +2,17 @@
 
 [**Download**](https://github.com/cuevavirus/jav/releases)
 
-Automatically switch between your last used speaker and headphone volumes.
+Automatically switch between speaker and headphone volumes.
 
 ![demo.gif](https://github.com/cuevavirus/jav/raw/assets/demo.gif)
 ![bt_demo.gif](https://github.com/cuevavirus/jav/raw/assets/bt_demo.gif)
 
 ## Installation
 
-Supported firmware versions: 3.60, 3.65-3.73
+Supported firmware versions:
+
+- Retail 3.60-3.73
+- Testkit 3.65
 
 Download the latest version from [releases](https://github.com/cuevavirus/jav/releases) and install under `*main` of your taiHEN config.
 
@@ -29,7 +32,11 @@ ur0:tai/jav.suprx
 ## Credits
 
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)
-- Testing: dots-tb, nkekev, [ATTLAS](https://twitter.com/ATTLAS_), [froid_san](https://froidromhacks.org), [yoti](https://twitter.com/realyoti)
+- Testing: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA), nkekev, [ATTLAS](https://twitter.com/ATTLAS_), [froid_san](https://froidromhacks.org), [yoti](https://twitter.com/realyoti)
 - Marketing: dots-tb
-- Product manager: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA)
-- Funded by: CBPS ([forum](https://forum.devchroma.nl/index.php), [discord](https://discord.gg/2nDCbxJ))
+- Product manager: dots-tb
+- Author: [浅倉麗子](https://github.com/cuevavirus)
+
+## See more
+
+CBPS ([forum](https://forum.devchroma.nl/index.php), [discord](https://discordapp.com/invite/2ccAkg3))
