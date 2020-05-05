@@ -16,11 +16,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 // 六花ＰＲＯＪＥＣＴ
-// Plugin idea: nkekev
-// Testing: dots-tb, nkekev, ATTLAS, froid_san, yoti
-// Marketing: dots-tb
-// Product manager: dots-tb
-// Author: 浅倉麗子
 
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>

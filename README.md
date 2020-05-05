@@ -1,11 +1,11 @@
 # 自動オーディオボリューム
 
-[**Download**](https://github.com/cuevavirus/jav/releases)
+[Download binary](https://forum.devchroma.nl/index.php/topic,46.0.html) | [Report bugs](https://github.com/cuevavirus/jav/issues) | [Source code](https://git.shotatoshounenwachigau.moe/vita/jav/)
 
 Automatically switch between speaker and headphone volumes.
 
-![demo.gif](https://github.com/cuevavirus/jav/raw/assets/demo.gif)
-![bt_demo.gif](https://github.com/cuevavirus/jav/raw/assets/bt_demo.gif)
+![demo.gif](https://git.shotatoshounenwachigau.moe/vita/jav/plain/demo.gif?h=assets)
+![bt_demo.gif](https://git.shotatoshounenwachigau.moe/vita/jav/plain/bt_demo.gif?h=assets)
 
 ## Installation
 
@@ -14,7 +14,7 @@ Supported firmware versions:
 - Retail 3.60-3.73
 - Testkit 3.65
 
-Download the latest version from [releases](https://github.com/cuevavirus/jav/releases) and install under `*main` of your taiHEN config.
+Install under `*main` of your taiHEN config.
 
 ```
 *main
@@ -29,13 +29,17 @@ ur0:tai/jav.suprx
 - If your Vita is muted, the volume changes but remains muted. Press the volume buttons to unmute.
 - For Europe region Vitas, AVLS does not turn on automatically at boot or after 20 hours of playback.
 
+## Contributing
+
+Use [git-format-patch](https://www.git-scm.com/docs/git-format-patch) or [git-request-pull](https://www.git-scm.com/docs/git-request-pull) and email me at <asakurareiko@protonmail.ch>.
+
 ## Credits
 
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)
 - Testing: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA), nkekev, [ATTLAS](https://twitter.com/ATTLAS_), [froid_san](https://froidromhacks.org), [yoti](https://twitter.com/realyoti)
 - Marketing: dots-tb
 - Product manager: dots-tb
-- Author: [浅倉麗子](https://github.com/cuevavirus)
+- Author: 浅倉麗子
 
 ## See more
 
