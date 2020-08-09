@@ -15,9 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <psp2/io/fcntl.h>
-#include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
+#include <psp2/kernel/iofilemgr.h>
 #include "sce_bt.h"
 #include "config.h"
 #include "util.h"
@@ -44,8 +43,8 @@ static int prune_unpaired_bt(jav_config_t *config) {
 	sceClibMemset(new_bt_vol, 0, sizeof(new_bt_vol));
 	bt_volume_t *i = new_bt_vol;
 	for (int j = 0; j < ret; j++) {
-		bt_volume_t *ret = find_bt_volume(config, bt_info[j].mac0, bt_info[j].mac1);
-		if (ret) { *(i++) = *ret; }
+		bt_volume_t *vol = find_bt_volume(config, bt_info[j].mac0, bt_info[j].mac1);
+		if (vol) { *(i++) = *vol; }
 	}
 
 	sceClibMemcpy(config->bt_volume, new_bt_vol, sizeof(config->bt_volume));
@@ -116,8 +115,8 @@ int load_config(jav_config_t *config, int device, int mac0, int mac1) {
 	if (device == SPEAKER || device == HEADPHONE) {
 		if (config->avls) {
 			for (int i = 0; i < N_DEVICE_ONBOARD; i++) {
-				int vol = config->ob_volume[i];
-				config->ob_volume[i] = vol <= AVLS_MAX ? vol : AVLS_MAX;
+				int ob_vol = config->ob_volume[i];
+				config->ob_volume[i] = ob_vol <= AVLS_MAX ? ob_vol : AVLS_MAX;
 			}
 		}
 		vol = config->ob_volume[device];

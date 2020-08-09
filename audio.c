@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <psp2/avconfig.h>
 #include <psp2/registrymgr.h>
-#include "sce_avconfig.h"
 #include "sce_bt.h"
 #include "audio.h"
 #include "util.h"
@@ -41,25 +40,26 @@ static int get_connected_bt(int *mac0, int *mac1) {
 }
 
 int get_device(int *mac0, int* mac1) {
-	int r0, r1, r2, dev;
+	SceUInt32 ctrl, dev;
+	SceBool muted, avls;
 	*mac0 = *mac1 = 0;
 
-	RLZ(sceAVConfigGetConnectedAudioDevice(&r0));
-	if (r0 == (AVCONFIG_CONDEV_VITA_0 | AVCONFIG_CONDEV_VITA_8)) {
+	RLZ(sceAVConfigGetConnectedAudioDevice(&dev));
+	if (dev == (SCE_AVCONFIG_AUDIO_DEVICE_VITA_0 | SCE_AVCONFIG_AUDIO_DEVICE_VITA_8)) {
 		dev = SPEAKER;
-	} else if (r0 & AVCONFIG_CONDEV_BT_AUDIO_OUT) {
+	} else if (dev & SCE_AVCONFIG_AUDIO_DEVICE_BT_AUDIO_OUT) {
 		dev = BLUETOOTH;
-	} else if (r0 & AVCONFIG_CONDEV_AUDIO_OUT) {
+	} else if (dev & SCE_AVCONFIG_AUDIO_DEVICE_AUDIO_OUT) {
 		dev = HEADPHONE;
 	} else {
 		return -1;
 	}
 
-	RLZ(sceAVConfigGetVolCtrlEnable(&r0, &r1, &r2));
-	if ((dev == SPEAKER || dev == HEADPHONE) && r0 == AVCONFIG_VOLCTRL_ONBOARD) {
+	RLZ(sceAVConfigGetVolCtrlEnable(&ctrl, &muted, &avls));
+	if ((dev == SPEAKER || dev == HEADPHONE) && ctrl == SCE_AVCONFIG_VOLCTRL_ONBOARD) {
 		return dev;
 	} else if (dev == BLUETOOTH
-			&& r0 == AVCONFIG_VOLCTRL_BLUETOOTH
+			&& ctrl == SCE_AVCONFIG_VOLCTRL_BLUETOOTH
 			&& get_connected_bt(mac0, mac1) == 0) {
 		return dev;
 	} else {
@@ -86,8 +86,9 @@ int set_ob_volume(int vol) {
 }
 
 int get_muted(void) {
-	int r1, muted, r3;
-	RLZ(sceAVConfigGetVolCtrlEnable(&r1, &muted, &r3));
+	SceUInt32 ctrl;
+	SceBool muted, avls;
+	RLZ(sceAVConfigGetVolCtrlEnable(&ctrl, &muted, &avls));
 	return muted;
 }
 
@@ -103,8 +104,9 @@ int mute_on(void) {
 }
 
 int get_avls(void) {
-	int r1, r2, avls;
-	RLZ(sceAVConfigGetVolCtrlEnable(&r1, &r2, &avls));
+	SceUInt32 ctrl;
+	SceBool muted, avls;
+	RLZ(sceAVConfigGetVolCtrlEnable(&ctrl, &muted, &avls));
 	return avls;
 }
 
@@ -112,7 +114,7 @@ int set_avls(int v) {
 	int current = get_avls();
 	RLZ(current);
 	if (current != v) {
-		RLZ(sceAVConfigChangeReg(AVCONFIG_REG_AVLS, v));
+		RLZ(sceAVConfigChangeReg(SCE_AVCONFIG_REG_AVLS, v));
 		RNE(get_avls(), v);
 		RLZ(sceRegMgrSetKeyInt(SOUND_REG, "avls", v));
 	}
@@ -121,7 +123,7 @@ int set_avls(int v) {
 
 int disable_avls_timer(void) {
 	int ret;
-	RLZ(sceAVConfigChangeReg(AVCONFIG_REG_AVLS_TIMER, 0));
+	RLZ(sceAVConfigChangeReg(SCE_AVCONFIG_REG_AVLS_TIMER, 0));
 	RLZ(sceRegMgrGetKeyInt(SOUND_REG, "avls_timer", &ret));
 	if (ret > 0) { RLZ(sceRegMgrSetKeyInt(SOUND_REG, "avls_timer", 0)); }
 	return 0;
@@ -137,7 +139,7 @@ int set_speaker_mute(int v) {
 	int current = get_speaker_mute();
 	RLZ(current);
 	if (current != v) {
-		RLZ(sceAVConfigChangeReg(AVCONFIG_REG_SPEAKER_MUTE, v));
+		RLZ(sceAVConfigChangeReg(SCE_AVCONFIG_REG_SPEAKER_MUTE, v));
 		RNE(get_speaker_mute(), v);
 		RLZ(sceRegMgrSetKeyInt(SOUND_REG, "speaker_mute", v));
 	}

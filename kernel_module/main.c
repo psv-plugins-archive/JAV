@@ -65,8 +65,7 @@ static void cleanup(void) {
 	}
 }
 
-int _start() __attribute__ ((weak, alias("module_start")));
-int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
+int module_start(SceSize args, const void *argp) { (void)args; (void)argp;
 	tai_module_info_t mod_info;
 	mod_info.size = sizeof(tai_module_info_t);
 
@@ -97,7 +96,7 @@ fail:
 	return SCE_KERNEL_START_FAILED;
 }
 
-int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
+int module_stop(SceSize args, const void *argp) { (void)args; (void)argp;
 	cleanup();
 	return SCE_KERNEL_STOP_SUCCESS;
 }

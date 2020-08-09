@@ -13,27 +13,44 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.13)
 
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  if(DEFINED ENV{VITASDK})
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "toolchain file")
-  else()
-    message(FATAL_ERROR "Please define VITASDK to point to your SDK path!")
-  endif()
-endif()
+set(CMAKE_TOOLCHAIN_FILE "$ENV{DOLCESDK}/share/dolce.toolchain.cmake" CACHE PATH "DolceSDK toolchain file")
+set(DOLCESDK_CMAKE_FILE "$ENV{DOLCESDK}/share/dolce.cmake" CACHE PATH "DolceSDK CMake functions file")
+include("${DOLCESDK_CMAKE_FILE}" REQUIRED)
 
 project(jav LANGUAGES C)
-include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib -Wall -Wextra -O3 -std=c99")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
+add_compile_options(
+  -O3 -std=c99
+  -Wall -Wextra -Wdouble-promotion -Wshadow -Wundef
+  -fsingle-precision-constant -fno-common
+)
+
+add_link_options(
+  -nostdlib
+  --entry=module_start
+)
+
+include_directories(
+  common
+  sce
+)
 
 add_subdirectory(kernel_module)
-add_subdirectory(libpaf)
 
-set(ELF  "${PROJECT_NAME}.elf")
-set(SELF "${PROJECT_NAME}.suprx")
+# Build ScePafToplevel stubs
+
+dolce_gen_libs(ScePaf_stubs
+  ScePaf.yml
+  LIB ScePaf2_stub_weak
+)
+
+# Build self
+
+set(ELF "jav.elf")
+set(SELF "jav.suprx")
+set(MODULE_INFO "exports.yml")
 
 add_executable("${ELF}"
   main.c
@@ -42,28 +59,25 @@ add_executable("${ELF}"
   common/util.c
 )
 
-target_include_directories("${ELF}"
-  PRIVATE common
-  PRIVATE sce
-)
-
 target_link_libraries("${ELF}"
-  gcc
+  jav_kernel
+
+  taihen_stub
+
   SceAVConfig_stub
   SceBt_stub
   SceIofilemgr_stub
   SceKernelModulemgr_stub
   SceKernelThreadMgr_stub
   SceLibKernel_stub
-  ScePafToplevel_stub_weak
+  ScePaf2_stub_weak
   SceRegistryMgr_stub
   SceSysmodule_stub
-  taihen_stub
-  jav_kernel
+
+  gcc
 )
 
-vita_create_self("${SELF}"
+dolce_create_self("${SELF}"
   "${ELF}"
-  CONFIG exports.yml
-  UNSAFE
+  CONFIG "${MODULE_INFO}"
 )

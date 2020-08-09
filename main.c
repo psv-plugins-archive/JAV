@@ -17,14 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // 六花ＰＲＯＪＥＣＴ
 
-#include <psp2/io/fcntl.h>
-#include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
+#include <psp2/kernel/iofilemgr.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
 #include <taihen.h>
-#include "sce_kernel.h"
 #include "sce_shell.h"
 #include "audio.h"
 #include "config.h"
@@ -62,11 +60,11 @@ static tai_hook_ref_t proc_vol_hook_ref = -1;
 static SceUID thread_id = -1;
 static SceUID jav_timer = -1;
 
-static void reset_jav_timer(SceKernelSysClock delay) {
+static void reset_jav_timer(int delay) {
 	sceKernelStopTimer(jav_timer);
 	sceKernelSetTimerTimeWide(jav_timer, 0);
 	sceKernelClearEvent(jav_timer, ~SCE_KERNEL_EVENT_TIMER);
-	sceKernelSetTimerEvent(jav_timer, SCE_KERNEL_TIMER_TYPE_PULSE_EVENT, &delay, 1);
+	sceKernelSetTimerEvent(jav_timer, SCE_KERNEL_TIMER_TYPE_PULSE_EVENT, &(SceKernelSysClock){.quad = delay}, 1);
 	sceKernelStartTimer(jav_timer);
 }
 
@@ -315,8 +313,7 @@ static int extract_jav_kernel(void) {
 	}
 }
 
-int _start() __attribute__ ((weak, alias("module_start")));
-int module_start(SceSize argc, const void *argv) { (void)argc; (void)argv;
+int module_start(SceSize args, const void *argp) { (void)args; (void)argp;
 	LOG("JAV starting\n");
 
 	// extract and load JAVKernel
@@ -412,7 +409,7 @@ fail:
 	return SCE_KERNEL_START_FAILED;
 }
 
-int module_stop(SceSize argc, const void *argv) { (void)argc; (void)argv;
+int module_stop(SceSize args, const void *argp) { (void)args; (void)argp;
 	LOG("JAV stopping\n");
 	cleanup();
 	LOG("JAV stop success\n");
