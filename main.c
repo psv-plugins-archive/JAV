@@ -181,7 +181,7 @@ static int switch_audio(jav_config_t *config, int device, int mac0, int mac1, au
 	return new_vol;
 }
 
-static int jav(SceSize argc, void *argv) { (void)argc;
+static int jav(UNUSED SceSize argc, void *argv) {
 	audio_info_t *audio_info = *(audio_info_t**)argv;
 
 	// config is written to file after 3 seconds of no change
@@ -313,7 +313,7 @@ static int extract_jav_kernel(void) {
 	}
 }
 
-int module_start(SceSize args, const void *argp) { (void)args; (void)argp;
+USED int module_start(UNUSED SceSize args, UNUSED const void *argp) {
 	LOG("JAV starting\n");
 
 	// extract and load JAVKernel
@@ -413,7 +413,7 @@ fail:
 	return SCE_KERNEL_START_FAILED;
 }
 
-int module_stop(SceSize args, const void *argp) { (void)args; (void)argp;
+USED int module_stop(UNUSED SceSize args, UNUSED const void *argp) {
 	LOG("JAV stopping\n");
 	cleanup();
 	LOG("JAV stop success\n");

@@ -22,9 +22,10 @@ include("${DOLCESDK_CMAKE_FILE}" REQUIRED)
 project(jav LANGUAGES C)
 
 add_compile_options(
-  -O3 -std=c99
+  -Os -std=c99
   -Wall -Wextra -Wdouble-promotion -Wshadow -Wundef
-  -fsingle-precision-constant -fno-common
+  -fsingle-precision-constant -fno-common -flto
+  -ftree-vectorize -funsafe-math-optimizations
 )
 
 add_link_options(
@@ -73,8 +74,6 @@ target_link_libraries("${ELF}"
   ScePaf2_stub_weak
   SceRegistryMgr_stub
   SceSysmodule_stub
-
-  gcc
 )
 
 dolce_create_self("${SELF}"

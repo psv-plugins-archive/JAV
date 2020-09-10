@@ -65,7 +65,7 @@ static void cleanup(void) {
 	}
 }
 
-int module_start(SceSize args, const void *argp) { (void)args; (void)argp;
+USED int module_start(UNUSED SceSize args, UNUSED const void *argp) {
 	tai_module_info_t mod_info;
 	mod_info.size = sizeof(tai_module_info_t);
 
@@ -96,7 +96,7 @@ fail:
 	return SCE_KERNEL_START_FAILED;
 }
 
-int module_stop(SceSize args, const void *argp) { (void)args; (void)argp;
+USED int module_stop(UNUSED SceSize args, UNUSED const void *argp) {
 	cleanup();
 	return SCE_KERNEL_STOP_SUCCESS;
 }

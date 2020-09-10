@@ -34,6 +34,7 @@ target_link_libraries("${ELF}"
   taihenModuleUtils_stub
 
   SceCpuForDriver_stub
+  SceSysclibForDriver_stub
 )
 
 dolce_create_self("${SELF}"

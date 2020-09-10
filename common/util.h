@@ -23,6 +23,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define CONFIG_PATH     CONFIG_JAV_DIR "config.bin"
 #define JAV_KERNEL_PATH CONFIG_JAV_DIR "jav_kernel.skprx"
 
+#define USED __attribute__ ((used))
+#define UNUSED __attribute__ ((unused))
+
 #define OB2BT(x) (((x) * 127 + 15) / 30)
 #define BT2OB(x) (((x) * 30 + 63) / 127)
 
