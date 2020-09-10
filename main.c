@@ -372,6 +372,10 @@ int module_start(SceSize args, const void *argp) { (void)args; (void)argp;
 			LOG("firmware 3.63-3.73 retail\n");
 			proc_vol_ofs = 0x14547A;
 			break;
+		case 0xEAB89D5C: // 3.60 testkit
+			LOG("firmware 3.60 testkit\n");
+			proc_vol_ofs = 0x13D856;
+			break;
 		case 0x587F9CED: // 3.65 testkit
 			LOG("firmware 3.65 testkit\n");
 			proc_vol_ofs = 0x13D8AE;
