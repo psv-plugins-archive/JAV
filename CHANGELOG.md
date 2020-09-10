@@ -1,5 +1,10 @@
 ### Changelog
 
+#### v2.2.0
+
+- Workaround for taiHEN unhook bug (https://github.com/yifanlu/taiHEN/pull/88)
+- Support testkit firmware 3.60
+
 #### v2.1.0
 
 - Support retail firmwares 3.61, 3.63

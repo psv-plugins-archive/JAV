@@ -1,7 +1,5 @@
 # 自動オーディオボリューム
 
-[Download binary](https://forum.devchroma.nl/index.php/topic,46.0.html) | [Report bugs](https://github.com/cuevavirus/jav/issues) | [Source code](https://git.shotatoshounenwachigau.moe/vita/jav/)
-
 Automatically switch between speaker and headphone volumes.
 
 ![demo.gif](https://git.shotatoshounenwachigau.moe/vita/jav/plain/demo.gif?h=assets)
@@ -12,13 +10,13 @@ Automatically switch between speaker and headphone volumes.
 Supported firmware versions:
 
 - Retail 3.60-3.73
-- Testkit 3.65
+- Testkit 3.60, 3.65
 
 Install under `*main` of your taiHEN config.
 
 ```
 *main
-ur0:tai/jav.suprx
+ur0:/tai/jav.suprx
 ```
 
 ## Usage
@@ -29,6 +27,13 @@ ur0:tai/jav.suprx
 - If your Vita is muted, the volume changes but remains muted. Press the volume buttons to unmute.
 - For Europe region Vitas, AVLS does not turn on automatically at boot or after 20 hours of playback.
 
+## Building
+
+Dependencies:
+
+- [DolceSDK](https://forum.devchroma.nl/index.php/topic,129.0.html)
+- [taiHEN](https://git.shotatoshounenwachigau.moe/vita/taihen)
+
 ## Contributing
 
 Use [git-format-patch](https://www.git-scm.com/docs/git-format-patch) or [git-request-pull](https://www.git-scm.com/docs/git-request-pull) and email me at <asakurareiko@protonmail.ch>.
@@ -36,11 +41,10 @@ Use [git-format-patch](https://www.git-scm.com/docs/git-format-patch) or [git-re
 ## Credits
 
 - Plugin idea: [nkekev](https://twitter.com/Nkekev)
-- Testing: [dots-tb](https://www.youtube.com/channel/UCsGdCQOiM33p16vZT-zM9MA), nkekev, [ATTLAS](https://twitter.com/ATTLAS_), [froid_san](https://froidromhacks.org), [yoti](https://twitter.com/realyoti)
+- Testing: [dots-tb](https://twitter.com/dots_tb), nkekev, ATTLAS, [froid_san](https://froidromhacks.com), [yoti](https://twitter.com/realyoti)
 - Marketing: dots-tb
-- Product manager: dots-tb
-- Author: 浅倉麗子
 
-## See more
+## See also
 
-CBPS ([forum](https://forum.devchroma.nl/index.php), [discord](https://discordapp.com/invite/2ccAkg3))
+- [Discussion](https://forum.devchroma.nl/index.php/topic,46.0.html)
+- [Source code](https://git.shotatoshounenwachigau.moe/vita/jav)
