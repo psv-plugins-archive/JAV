@@ -51,11 +51,13 @@ static int (*free_vol_bar)(volume_bar_t *v);
 
 static SceUID         SceShell_id = -1;
 static int            proc_vol_ofs = -1;
-static SceUID         proc_vol_hook_id = -1;
-static tai_hook_ref_t proc_vol_hook_ref = -1;
-#define HOOK_PROC_VOL(x)\
-	(proc_vol_hook_id = taiHookFunctionOffset(\
-		&proc_vol_hook_ref, SceShell_id, 0, proc_vol_ofs, 1, (void*)(x)))
+
+#define PROC_VOL_N_HOOK 2
+static SceUID         proc_vol_hook_id[PROC_VOL_N_HOOK];
+static tai_hook_ref_t proc_vol_hook_ref[PROC_VOL_N_HOOK];
+#define HOOK_PROC_VOL(i, x)\
+	(proc_vol_hook_id[i] = taiHookFunctionOffset(\
+		proc_vol_hook_ref+i, SceShell_id, 0, proc_vol_ofs, 1, (void*)(x)))
 
 static SceUID thread_id = -1;
 static SceUID jav_timer = -1;
@@ -74,7 +76,7 @@ static void wait_jav_timer(void) {
 
 static int process_volume_hook(audio_info_t *a, button_info_t *p) {
 	if (sceKernelTryLockLwMutex(&proc_vol_mtx, 1) == 0) {
-		int ret = TAI_CONTINUE(int, proc_vol_hook_ref, a, p);
+		int ret = TAI_CONTINUE(int, proc_vol_hook_ref[1], a, p);
 		sceKernelUnlockLwMutex(&proc_vol_mtx, 1);
 		return ret;
 	}
@@ -239,24 +241,31 @@ static int jav(UNUSED SceSize argc, void *argv) {
 }
 
 static int jav_thread_launcher(audio_info_t *a, button_info_t *p) {
-	int ret = TAI_CONTINUE(int, proc_vol_hook_ref, a, p);
+	int ret = TAI_CONTINUE(int, proc_vol_hook_ref[0], a, p);
 
-	// rehook process_volume
-	GLZ(taiHookRelease(proc_vol_hook_id, proc_vol_hook_ref));
-	GLZ(HOOK_PROC_VOL(process_volume_hook));
-	LOG("process_volume rehooked\n");
+	// Due to a taiHEN bug, this function cannot be unhooked
+	// See https://github.com/yifanlu/taiHEN/pull/88
 
-	// launch jav thread
-	thread_id = sceKernelCreateThread("JAVMain", jav,
-		SCE_KERNEL_CURRENT_THREAD_PRIORITY,
-		0x3000,
-		0,
-		sceKernelGetThreadCpuAffinityMask(SCE_KERNEL_THREAD_ID_SELF),
-		NULL);
-	GLZ(thread_id);
-	LOG("JAVMain created\n");
-	GLZ(sceKernelStartThread(thread_id, sizeof(a), &a));
-	LOG("JAVMain started\n");
+	static int hook_tried = 0;
+	if (!hook_tried) {
+		hook_tried = 1;
+
+		// rehook process_volume
+		GLZ(HOOK_PROC_VOL(1, process_volume_hook));
+		LOG("process_volume rehooked\n");
+
+		// launch jav thread
+		thread_id = sceKernelCreateThread("JAVMain", jav,
+			SCE_KERNEL_CURRENT_THREAD_PRIORITY,
+			0x3000,
+			0,
+			sceKernelGetThreadCpuAffinityMask(SCE_KERNEL_THREAD_ID_SELF),
+			NULL);
+		GLZ(thread_id);
+		LOG("JAVMain created\n");
+		GLZ(sceKernelStartThread(thread_id, sizeof(a), &a));
+		LOG("JAVMain started\n");
+	}
 
 fail:
 	return ret;
@@ -270,9 +279,11 @@ static void cleanup(void) {
 		LOG("JAVMain stopped and deleted\n");
 	}
 
-	if (proc_vol_hook_id >= 0) {
-		taiHookRelease(proc_vol_hook_id, proc_vol_hook_ref);
-		LOG("process_volume_hook released\n", proc_vol_hook_id);
+	for (int i = 0; i < PROC_VOL_N_HOOK; i++) {
+		if (proc_vol_hook_id[i] >= 0) {
+			taiHookRelease(proc_vol_hook_id[i], proc_vol_hook_ref[i]);
+			LOG("process_volume_hook %08X released\n", proc_vol_hook_id[i]);
+		}
 	}
 
 	sceKernelDeleteLwMutex(&proc_vol_mtx);
@@ -315,6 +326,9 @@ static int extract_jav_kernel(void) {
 
 USED int module_start(UNUSED SceSize args, UNUSED const void *argp) {
 	LOG("JAV starting\n");
+
+	sceClibMemset(proc_vol_hook_id, 0xFF, sizeof(proc_vol_hook_id));
+	sceClibMemset(proc_vol_hook_ref, 0xFF, sizeof(proc_vol_hook_ref));
 
 	// extract and load JAVKernel
 	GLZ(extract_jav_kernel());
@@ -401,8 +415,8 @@ USED int module_start(UNUSED SceSize args, UNUSED const void *argp) {
 	}
 
 	// setup hooks
-	GLZ(HOOK_PROC_VOL(jav_thread_launcher));
-	LOG("proc_vol_hook_id: %08X\n", proc_vol_hook_id);
+	GLZ(HOOK_PROC_VOL(0, jav_thread_launcher));
+	LOG("proc_vol_hook_id: %08X\n", proc_vol_hook_id[0]);
 
 	LOG("JAV start success\n");
 	return SCE_KERNEL_START_SUCCESS;
